@@ -2,7 +2,9 @@ apply plugin: 'com.android.library'
 
 
 dependencies {
-    implementation(name: 'unity-classes', ext:'jar')
+    // unity-classes 는 flutter_unity_widget 가 app/libs/unity-classes.jar 로 런타임 제공하므로
+    // 여기서는 compileOnly 로만 두어 중복 클래스 충돌 방지.
+    compileOnly(name: 'unity-classes', ext:'jar')
     implementation(name: 'arcore_client', ext:'aar')
     implementation(name: 'UnityARCore', ext:'aar')
     implementation(name: 'ARPresto', ext:'aar')
