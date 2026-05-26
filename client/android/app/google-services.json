@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "498016942419",
+    "project_id": "tori-capsule-110a3",
+    "storage_bucket": "tori-capsule-110a3.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:498016942419:android:72a9503480723f35ee49a6",
+        "android_client_info": {
+          "package_name": "com.example.login_test"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDADA150_W-yin0HJETFC_gn66vxtoP1iE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
