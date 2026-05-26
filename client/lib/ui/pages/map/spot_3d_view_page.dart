@@ -184,15 +184,33 @@ class _Spot3DViewPageState extends State<Spot3DViewPage> {
                     ),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: Text(
-                        widget.spot.visited ? widget.spot.name : '미발견 장소',
-                        style: const TextStyle(
-                          fontFamily: 'Workbench',
-                          fontSize: 16,
-                          color: Color(0xFF2E2B2A),
-                          letterSpacing: 0.8,
-                        ),
-                        overflow: TextOverflow.ellipsis,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            widget.spot.visited
+                                ? widget.spot.name
+                                : '미발견 장소',
+                            style: const TextStyle(
+                              fontFamily: 'Workbench',
+                              fontSize: 16,
+                              color: Color(0xFF2E2B2A),
+                              letterSpacing: 0.8,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          if (widget.spot.visited &&
+                              (widget.spot.category ?? '').trim().isNotEmpty)
+                            Text(
+                              widget.spot.categoryLabel,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: widget.spot.markerColor,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                        ],
                       ),
                     ),
                   ],

@@ -34,6 +34,7 @@ class _MapPageState extends State<MapPage> with TickerProviderStateMixin {
   List<TouristSpot> _spots = const [];
   List<CapsuleMapMarker> _capsules = const [];
   SpotFilter _filter = SpotFilter.all;
+  final Set<String> _selectedCategories = <String>{};
   bool _showCapsules = true;
   bool _loading = true;
   bool _checkingIn = false;
@@ -152,15 +153,30 @@ class _MapPageState extends State<MapPage> with TickerProviderStateMixin {
     _mapController.move(_mapController.camera.center, (z - 1).clamp(5.0, 20.0));
   }
 
-  Iterable<TouristSpot> get _visibleSpots {
-    switch (_filter) {
-      case SpotFilter.all:
-        return _spots;
-      case SpotFilter.undiscovered:
-        return _spots.where((s) => !s.visited);
-      case SpotFilter.completed:
-        return _spots.where((s) => s.visited);
+  /// 현재 로드된 관광지에서 등장하는 카테고리 목록(중복 제거, 정렬).
+  List<String> get _availableCategories {
+    final set = <String>{};
+    for (final s in _spots) {
+      final c = (s.category ?? '').trim();
+      if (c.isNotEmpty) set.add(c);
     }
+    final list = set.toList()..sort();
+    return list;
+  }
+
+  Iterable<TouristSpot> get _visibleSpots {
+    Iterable<TouristSpot> result = _spots;
+    if (_filter == SpotFilter.undiscovered) {
+      result = result.where((s) => !s.visited);
+    } else if (_filter == SpotFilter.completed) {
+      result = result.where((s) => s.visited);
+    }
+    if (_selectedCategories.isNotEmpty) {
+      result = result.where(
+        (s) => _selectedCategories.contains((s.category ?? '').trim()),
+      );
+    }
+    return result;
   }
 
   double _distanceMeters(LatLng a, LatLng b) {
@@ -286,69 +302,129 @@ class _MapPageState extends State<MapPage> with TickerProviderStateMixin {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (_) => SafeArea(
-        top: false,
-        child: Container(
-          padding: const EdgeInsets.all(20),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text(
-                '관광지 필터',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: MapPage._brown,
+      builder: (_) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final categories = _availableCategories;
+            return SafeArea(
+              top: false,
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
                 ),
-              ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                children: SpotFilter.values
-                    .map(
-                      (f) => ChoiceChip(
-                        label: Text(f.label),
-                        selected: _filter == f,
-                        selectedColor: MapPage._brown.withValues(alpha: 0.2),
-                        onSelected: (_) {
-                          setState(() => _filter = f);
-                          Navigator.of(context).pop();
-                        },
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text(
+                      '발견 상태',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: MapPage._brown,
                       ),
-                    )
-                    .toList(),
-              ),
-              const Divider(height: 32),
-              const Text(
-                '내가 묻은 캡슐',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: MapPage._brown,
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      children: SpotFilter.values
+                          .map(
+                            (f) => ChoiceChip(
+                              label: Text(f.label),
+                              selected: _filter == f,
+                              selectedColor:
+                                  MapPage._brown.withValues(alpha: 0.2),
+                              onSelected: (_) {
+                                setState(() => _filter = f);
+                                setModalState(() {});
+                              },
+                            ),
+                          )
+                          .toList(),
+                    ),
+                    if (categories.isNotEmpty) ...[
+                      const Divider(height: 32),
+                      Row(
+                        children: [
+                          const Expanded(
+                            child: Text(
+                              '카테고리',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: MapPage._brown,
+                              ),
+                            ),
+                          ),
+                          if (_selectedCategories.isNotEmpty)
+                            TextButton(
+                              onPressed: () {
+                                setState(() => _selectedCategories.clear());
+                                setModalState(() {});
+                              },
+                              child: const Text(
+                                '전체 해제',
+                                style: TextStyle(color: MapPage._brown),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
+                        children: categories.map((c) {
+                          final selected = _selectedCategories.contains(c);
+                          return FilterChip(
+                            label: Text(touristCategoryLabel(c)),
+                            selected: selected,
+                            selectedColor:
+                                MapPage._brown.withValues(alpha: 0.2),
+                            onSelected: (value) {
+                              setState(() {
+                                if (value) {
+                                  _selectedCategories.add(c);
+                                } else {
+                                  _selectedCategories.remove(c);
+                                }
+                              });
+                              setModalState(() {});
+                            },
+                          );
+                        }).toList(),
+                      ),
+                    ],
+                    const Divider(height: 32),
+                    const Text(
+                      '내가 묻은 캡슐',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: MapPage._brown,
+                      ),
+                    ),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text(
+                        '지도에 캡슐 표시',
+                        style: TextStyle(color: MapPage._brown),
+                      ),
+                      value: _showCapsules,
+                      activeColor: MapPage._brown,
+                      onChanged: (value) {
+                        setState(() => _showCapsules = value);
+                        setModalState(() {});
+                      },
+                    ),
+                  ],
                 ),
               ),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text(
-                  '지도에 캡슐 표시',
-                  style: TextStyle(color: MapPage._brown),
-                ),
-                value: _showCapsules,
-                activeColor: MapPage._brown,
-                onChanged: (value) {
-                  setState(() => _showCapsules = value);
-                  Navigator.of(context).pop();
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -417,11 +493,14 @@ class _MapPageState extends State<MapPage> with TickerProviderStateMixin {
         markers.add(
           Marker(
             point: point,
-            width: 36,
-            height: 36,
+            width: 48,
+            height: 48,
             child: GestureDetector(
               onTap: () => _openCapsuleSheet(capsule),
-              child: _CapsuleMarker(locked: capsule.isLocked),
+              child: _CapsuleMarker(
+                locked: capsule.isLocked,
+                design: capsule.design,
+              ),
             ),
           ),
         );
@@ -631,28 +710,68 @@ class _SpotMarker extends StatelessWidget {
 }
 
 class _CapsuleMarker extends StatelessWidget {
-  const _CapsuleMarker({required this.locked});
+  const _CapsuleMarker({required this.locked, this.design = 'base'});
 
   final bool locked;
+  final String design;
 
   @override
   Widget build(BuildContext context) {
     final color = locked ? const Color(0xFFA14040) : const Color(0xFF1FAA8C);
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        shape: BoxShape.circle,
-        border: Border.all(color: color, width: 2),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 4),
-        ],
-      ),
+    return Stack(
+      clipBehavior: Clip.none,
       alignment: Alignment.center,
-      child: Icon(
-        locked ? Icons.lock_outline : Icons.lock_open_outlined,
-        color: color,
-        size: 18,
-      ),
+      children: [
+        // 캡슐 디자인 스프라이트. 매칭되는 에셋이 없으면 잠금 원형으로 대체.
+        Image.asset(
+          'assets/images/capsule/$design/south-east.png',
+          width: 40,
+          height: 40,
+          fit: BoxFit.contain,
+          filterQuality: FilterQuality.medium,
+          errorBuilder: (_, __, ___) => Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+              border: Border.all(color: color, width: 2),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.15),
+                  blurRadius: 4,
+                ),
+              ],
+            ),
+          ),
+        ),
+        // 잠금/해제 상태 배지
+        Positioned(
+          right: 0,
+          bottom: 0,
+          child: Container(
+            width: 18,
+            height: 18,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+              border: Border.all(color: color, width: 2),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.2),
+                  blurRadius: 3,
+                ),
+              ],
+            ),
+            alignment: Alignment.center,
+            child: Icon(
+              locked ? Icons.lock_outline : Icons.lock_open_outlined,
+              color: color,
+              size: 10,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

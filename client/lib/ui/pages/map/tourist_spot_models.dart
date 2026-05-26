@@ -19,6 +19,37 @@ extension SpotFilterLabel on SpotFilter {
   }
 }
 
+/// 관광지 카테고리(서버 category 값)를 한글 라벨로 변환.
+String touristCategoryLabel(String? category) {
+  switch ((category ?? '').toLowerCase()) {
+    case 'palace':
+      return '궁';
+    case 'museum':
+      return '박물관';
+    case 'pagoda':
+      return '석탑';
+    case 'temple':
+      return '사찰';
+    case 'tower':
+      return '탑';
+    case 'landmark':
+      return '명소';
+    case 'shopping':
+      return '쇼핑';
+    case 'modern':
+      return '현대';
+    case 'park':
+      return '공원';
+    case 'bridge':
+      return '다리';
+    case 'village':
+      return '마을';
+    default:
+      final c = (category ?? '').trim();
+      return c.isEmpty ? '기타' : c;
+  }
+}
+
 enum VisitSource {
   capsule,
   ar,
@@ -125,6 +156,8 @@ class TouristSpot {
     );
   }
 
+  String get categoryLabel => touristCategoryLabel(category);
+
   Color get markerColor {
     final hex = (colorHex ?? '').replaceAll('#', '');
     if (hex.length == 6) {
@@ -171,6 +204,7 @@ class CapsuleMapMarker {
     required this.longitude,
     required this.status,
     required this.canOpenNow,
+    this.design = 'base',
     this.emotion,
     this.createdAt,
     this.buriedAt,
@@ -184,6 +218,7 @@ class CapsuleMapMarker {
   final double longitude;
   final String status;
   final bool canOpenNow;
+  final String design;
   final String? emotion;
   final DateTime? createdAt;
   final DateTime? buriedAt;
@@ -212,11 +247,14 @@ class CapsuleMapMarker {
       return DateTime.tryParse(s);
     }
 
+    final designRaw = (json['design'] ?? '').toString().trim();
+
     return CapsuleMapMarker(
       id: (json['id'] ?? '').toString(),
       latitude: lat,
       longitude: lon,
       status: (json['status'] ?? '').toString(),
+      design: designRaw.isEmpty ? 'base' : designRaw,
       emotion: json['emotion']?.toString(),
       createdAt: parseDate(json['created']),
       buriedAt: parseDate(json['buried_at']),
