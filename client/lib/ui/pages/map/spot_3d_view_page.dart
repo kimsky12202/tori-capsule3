@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
+import '../../services/spot_photo_api.dart';
 import 'map_config.dart';
 import 'tourist_spot_models.dart';
 
@@ -26,9 +27,16 @@ class _Spot3DViewPageState extends State<Spot3DViewPage> {
   late final WebViewController _controller;
   bool _loading = true;
 
+  // image_url 이 지정돼 있으면 그걸 쓰고, 없으면 위키백과에서 이름으로 사진을 찾는다.
+  Future<String?>? _photoFuture;
+
   @override
   void initState() {
     super.initState();
+    final manual = (widget.spot.imageUrl ?? '').trim();
+    if (manual.isEmpty) {
+      _photoFuture = SpotPhotoApi().fetchPhotoUrl(widget.spot.name);
+    }
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(const Color(0xFFEDE9E1))
@@ -189,9 +197,7 @@ class _Spot3DViewPageState extends State<Spot3DViewPage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            widget.spot.visited
-                                ? widget.spot.name
-                                : '미발견 장소',
+                            widget.spot.name,
                             style: const TextStyle(
                               fontFamily: 'Workbench',
                               fontSize: 16,
@@ -200,8 +206,7 @@ class _Spot3DViewPageState extends State<Spot3DViewPage> {
                             ),
                             overflow: TextOverflow.ellipsis,
                           ),
-                          if (widget.spot.visited &&
-                              (widget.spot.category ?? '').trim().isNotEmpty)
+                          if ((widget.spot.category ?? '').trim().isNotEmpty)
                             Text(
                               widget.spot.categoryLabel,
                               style: TextStyle(
@@ -241,6 +246,68 @@ class _Spot3DViewPageState extends State<Spot3DViewPage> {
     );
   }
 
+  Widget _buildPhoto() {
+    final manual = (widget.spot.imageUrl ?? '').trim();
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: SizedBox(
+        width: 96,
+        height: 96,
+        child: _photoFuture == null
+            ? _photoContent(manual)
+            : FutureBuilder<String?>(
+                future: _photoFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return _photoPlaceholder();
+                  }
+                  return _photoContent(snapshot.data ?? '');
+                },
+              ),
+      ),
+    );
+  }
+
+  Widget _photoContent(String url) {
+    if (url.isEmpty) return _photoFallback();
+    return Image.network(
+      url,
+      width: 96,
+      height: 96,
+      fit: BoxFit.cover,
+      loadingBuilder: (context, child, progress) =>
+          progress == null ? child : _photoPlaceholder(),
+      errorBuilder: (_, __, ___) => _photoFallback(),
+    );
+  }
+
+  Widget _photoPlaceholder() {
+    return Container(
+      color: const Color(0xFFEDE9E1),
+      alignment: Alignment.center,
+      child: const SizedBox(
+        width: 18,
+        height: 18,
+        child: CircularProgressIndicator(
+          strokeWidth: 2,
+          color: Color(0xFF1FAA8C),
+        ),
+      ),
+    );
+  }
+
+  Widget _photoFallback() {
+    return Container(
+      color: widget.spot.markerColor.withValues(alpha: 0.15),
+      alignment: Alignment.center,
+      child: Icon(
+        widget.spot.markerIcon,
+        color: widget.spot.markerColor,
+        size: 32,
+      ),
+    );
+  }
+
   Widget _buildBottomCard(Color color, bool visited) {
     final description = widget.spot.description ?? '관광지 정보';
     return Positioned(
@@ -267,40 +334,56 @@ class _Spot3DViewPageState extends State<Spot3DViewPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  _buildPhoto(),
+                  const SizedBox(width: 12),
                   Expanded(
-                    child: Text(
-                      description,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: Color(0xFF54514D),
-                        height: 1.4,
-                      ),
-                    ),
-                  ),
-                  if (visited)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: color.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.check_circle, size: 14, color: color),
-                          const SizedBox(width: 4),
-                          Text(
-                            '완료',
-                            style: TextStyle(
-                              fontFamily: 'Workbench',
-                              color: color,
-                              fontSize: 12,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (visited)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 6),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: color.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.check_circle,
+                                      size: 14, color: color),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '완료',
+                                    style: TextStyle(
+                                      fontFamily: 'Workbench',
+                                      color: color,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                        ],
-                      ),
+                        Text(
+                          description,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF54514D),
+                            height: 1.4,
+                          ),
+                        ),
+                      ],
                     ),
+                  ),
                 ],
               ),
               const SizedBox(height: 12),
