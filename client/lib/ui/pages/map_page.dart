@@ -651,57 +651,67 @@ class _SpotMarker extends StatelessWidget {
 
   final TouristSpot spot;
 
+  static const _borderColor = Color(0xFF2E2B2A);
+  static const _cream = Color(0xFFF4F1EA);
+  static const _gold = Color(0xFFC9A227);
+
   @override
   Widget build(BuildContext context) {
     final visited = spot.visited;
-    final color = visited ? spot.markerColor : const Color(0xFF3F3D3A);
+    final color = spot.markerColor;
+    final bgColor = visited ? color : _cream;
+    final iconColor = visited ? Colors.white : const Color(0xFF6B6862);
+
     return Stack(
       clipBehavior: Clip.none,
-      alignment: Alignment.topCenter,
       children: [
+        // 핀 꼬리 (맨 아래, 좌우 중앙)
         Positioned(
-          top: 40,
+          bottom: 0,
+          left: 21, // (56 - 14) / 2
           child: CustomPaint(
-            size: const Size(8, 14),
-            painter: _MarkerTailPainter(color: color),
+            size: const Size(14, 14),
+            painter: _MarkerTailPainter(
+              fill: bgColor,
+              border: _borderColor,
+            ),
           ),
         ),
-        Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.white, width: 3),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.25),
-                blurRadius: 6,
-                offset: const Offset(0, 3),
-              ),
-            ],
-          ),
-          alignment: Alignment.center,
-          child: Icon(
-            visited ? spot.markerIcon : Icons.help_outline,
-            color: Colors.white,
-            size: 24,
+        // 본체 (둥근 사각형, 한옥 픽셀아트 톤)
+        Positioned(
+          top: 12,
+          left: 5, // (56 - 46) / 2
+          child: Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              color: bgColor,
+              borderRadius: BorderRadius.circular(7),
+              border: Border.all(color: _borderColor, width: 2.5),
+            ),
+            alignment: Alignment.center,
+            child: Icon(
+              visited ? spot.markerIcon : Icons.help_outline,
+              color: iconColor,
+              size: 22,
+            ),
           ),
         ),
+        // 발견 도장 (황금 별, 우측 상단에 살짝 걸침)
         if (visited)
           Positioned(
-            top: 34,
-            right: 0,
+            top: 8,
+            right: 3,
             child: Container(
               width: 18,
               height: 18,
               decoration: BoxDecoration(
-                color: color,
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 2),
+                color: _gold,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: _borderColor, width: 1.5),
               ),
               alignment: Alignment.center,
-              child: const Icon(Icons.check, color: Colors.white, size: 11),
+              child: const Icon(Icons.star, color: Colors.white, size: 10),
             ),
           ),
       ],
@@ -801,25 +811,39 @@ class _UserMarker extends StatelessWidget {
 }
 
 class _MarkerTailPainter extends CustomPainter {
-  _MarkerTailPainter({required this.color});
-  final Color color;
+  _MarkerTailPainter({required this.fill, required this.border});
+
+  final Color fill;
+  final Color border;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
+    final fillPaint = Paint()
+      ..color = fill
       ..style = PaintingStyle.fill;
     final path = ui.Path()
       ..moveTo(0, 0)
-      ..lineTo(size.width / 2, size.height)
       ..lineTo(size.width, 0)
+      ..lineTo(size.width / 2, size.height)
       ..close();
-    canvas.drawPath(path, paint);
+    canvas.drawPath(path, fillPaint);
+
+    // 두 사선만 외곽선 (위쪽은 본체와 닿아 가려짐)
+    final borderPaint = Paint()
+      ..color = border
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.5
+      ..strokeJoin = StrokeJoin.round;
+    final borderPath = ui.Path()
+      ..moveTo(0, 0)
+      ..lineTo(size.width / 2, size.height)
+      ..lineTo(size.width, 0);
+    canvas.drawPath(borderPath, borderPaint);
   }
 
   @override
   bool shouldRepaint(covariant _MarkerTailPainter oldDelegate) =>
-      oldDelegate.color != color;
+      oldDelegate.fill != fill || oldDelegate.border != border;
 }
 
 class _MissingTokenView extends StatelessWidget {
