@@ -143,16 +143,6 @@ class _MapPageState extends State<MapPage> with TickerProviderStateMixin {
     await _startLocationUpdates();
   }
 
-  void _zoomIn() {
-    final z = _mapController.camera.zoom;
-    _mapController.move(_mapController.camera.center, (z + 1).clamp(5.0, 20.0));
-  }
-
-  void _zoomOut() {
-    final z = _mapController.camera.zoom;
-    _mapController.move(_mapController.camera.center, (z - 1).clamp(5.0, 20.0));
-  }
-
   /// 현재 로드된 관광지에서 등장하는 카테고리 목록(중복 제거, 정렬).
   List<String> get _availableCategories {
     final set = <String>{};
@@ -543,8 +533,8 @@ class _MapPageState extends State<MapPage> with TickerProviderStateMixin {
             ),
           ),
           Positioned(
-            top: 118,
-            left: 16,
+            right: 16,
+            bottom: 24,
             child: Column(
               children: <Widget>[
                 _MapControlButton(
@@ -572,25 +562,6 @@ class _MapPageState extends State<MapPage> with TickerProviderStateMixin {
                 _MapControlButton(
                   icon: Icons.near_me_outlined,
                   onTap: _centerOnUser,
-                ),
-              ],
-            ),
-          ),
-          Positioned(
-            right: 24,
-            bottom: 24,
-            child: Column(
-              children: <Widget>[
-                _MapControlButton(
-                  icon: Icons.add,
-                  iconSize: 26,
-                  onTap: _zoomIn,
-                ),
-                const SizedBox(height: 8),
-                _MapControlButton(
-                  icon: Icons.remove,
-                  iconSize: 26,
-                  onTap: _zoomOut,
                 ),
               ],
             ),
@@ -883,21 +854,27 @@ class _MissingTokenView extends StatelessWidget {
 class _MapboxAttribution extends StatelessWidget {
   const _MapboxAttribution();
 
+  // Mapbox·OSM 라이선스상 표기는 필수이므로 제거하지 않고
+  // 글자/배경/패딩을 최소화해 화면을 가리지 않도록 한다.
   @override
   Widget build(BuildContext context) {
     return Align(
       alignment: Alignment.bottomLeft,
       child: Padding(
-        padding: const EdgeInsets.only(left: 8, bottom: 8),
+        padding: const EdgeInsets.only(left: 4, bottom: 4),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.85),
-            borderRadius: BorderRadius.circular(4),
+            color: Colors.white.withValues(alpha: 0.55),
+            borderRadius: BorderRadius.circular(3),
           ),
           child: const Text(
-            '© Mapbox © OpenStreetMap',
-            style: TextStyle(fontSize: 10, color: MapPage._brown),
+            '© Mapbox © OSM',
+            style: TextStyle(
+              fontSize: 8,
+              color: MapPage._brown,
+              height: 1.0,
+            ),
           ),
         ),
       ),
