@@ -37,6 +37,8 @@ class _MainTabPageState extends State<MainTabPage>
 
   late final TabController _controller;
   final CapsuleApi _capsuleApi = CapsuleApi();
+  // 지도 페이지를 외부에서 새로고침하기 위한 키 (캡슐 생성 후 등)
+  final GlobalKey<MapPageState> _mapPageKey = GlobalKey<MapPageState>();
   int _selectedIndex = 0;
   bool _isCreatingCapsule = false;
 
@@ -145,6 +147,9 @@ class _MainTabPageState extends State<MainTabPage>
       return;
     }
 
+    // 지도에 방금 묻은 캡슐 마커가 바로 보이도록 새로고침
+    _mapPageKey.currentState?.refresh();
+
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text('캡슐이 추가되었습니다.')));
@@ -220,7 +225,7 @@ class _MainTabPageState extends State<MainTabPage>
       physics: _tabBarPhysics,
       controller: _controller,
       children: <Widget>[
-        const MapPage(),
+        MapPage(key: _mapPageKey),
         const TimecapsulePage(),
         const ChallengeTabPage(),
         const SettingPage(),

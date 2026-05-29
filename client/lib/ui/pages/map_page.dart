@@ -22,10 +22,10 @@ class MapPage extends StatefulWidget {
   static const Color _mutedText = Color(0xFFCDBBA8);
 
   @override
-  State<MapPage> createState() => _MapPageState();
+  State<MapPage> createState() => MapPageState();
 }
 
-class _MapPageState extends State<MapPage> with TickerProviderStateMixin {
+class MapPageState extends State<MapPage> with TickerProviderStateMixin {
   static const _defaultCenter = LatLng(37.5665, 126.9780);
 
   final _spotApi = TouristSpotApi();
@@ -92,6 +92,10 @@ class _MapPageState extends State<MapPage> with TickerProviderStateMixin {
       _loading = false;
     });
   }
+
+  /// 외부에서 호출 가능한 공개 새로고침 메서드.
+  /// 캡슐 생성 직후 등 GlobalKey 로 호출.
+  Future<void> refresh() => _refresh();
 
   Future<void> _startLocationUpdates() async {
     try {
