@@ -15,14 +15,7 @@ extension MapStyleId on MapStyle {
   String get id {
     switch (this) {
       case MapStyle.streets:
-        // 다른 톤이 좋으면 한 줄만 바꾸세요:
-        //   'mapbox/light-v11'         미니멀 라이트(추천)
-        //   'mapbox/outdoors-v12'      자연·지형 (녹/갈 톤)
-        //   'mapbox/navigation-day-v1' 도로 강조, 깔끔
-        //   'mapbox/dark-v11'          다크
-        //   'mapbox/streets-v12'       기본 컬러풀
-        //   'USERNAME/STYLEID'         Mapbox Studio 커스텀 (mapbox/ 빼고)
-        return 'mapbox/light-v11';
+        return 'mapbox/streets-v12';
       case MapStyle.satellite:
         return 'mapbox/satellite-streets-v12';
     }
