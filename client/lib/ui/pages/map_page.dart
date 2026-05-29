@@ -8,6 +8,8 @@ import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
 import 'ar/ar_screen.dart';
+import '../services/capsule_api.dart';
+import 'capsule_detail_page.dart';
 import 'map/capsule_locked_sheet.dart';
 import 'map/map_config.dart';
 import 'map/spot_3d_view_page.dart';
@@ -278,6 +280,31 @@ class MapPageState extends State<MapPage> with TickerProviderStateMixin {
     if (capsuleLatLng != null) {
       _flyTo(capsuleLatLng, zoom: 17);
     }
+
+    // 캡슐이 열려 있으면(잠금 해제) 상세 페이지로 이동해 내용물(글/사진/음악) 보여줌.
+    if (capsule.canOpenNow) {
+      Navigator.of(context)
+          .push(MaterialPageRoute<void>(
+            builder: (_) => CapsuleDetailPage(
+              capsule: CapsuleListItem(
+                id: capsule.id,
+                status: capsule.status,
+                design: capsule.design,
+                emotion: capsule.emotion ?? '',
+                created: capsule.createdAt?.toIso8601String() ?? '',
+                buriedAt: capsule.buriedAt?.toIso8601String() ?? '',
+                isGroupCapsule: false, // 마커엔 정보 없음. 상세 페이지에서 서버 응답으로 보정.
+                openOption: capsule.openOption ?? 'anytime',
+                openAt: capsule.openAt?.toIso8601String() ?? '',
+                canOpenNow: capsule.canOpenNow,
+              ),
+            ),
+          ))
+          .then((_) => _refresh());
+      return;
+    }
+
+    // 잠긴 캡슐은 잠금 시트(개봉 시점/잔여 시간) 표시.
     String? spotName;
     for (final s in _spots) {
       if (s.visit?.capsuleId == capsule.id) {

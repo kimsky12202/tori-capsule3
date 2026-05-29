@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../services/friend_api.dart';
@@ -286,6 +287,11 @@ class _CapsuleContentSheetState extends State<CapsuleContentSheet> {
   List<FriendListItem> _friends = const <FriendListItem>[];
   final Set<String> _selectedFriendIds = <String>{};
 
+  // 잠금 설정 (선택). 기본은 잠금 없음(anytime).
+  bool _lockEnabled = false;
+  final TextEditingController _openDaysController =
+      TextEditingController(text: '30');
+
   static const List<String> _emotions = <String>['😊', '😢', '😍', '😡', '😎'];
 
   @override
@@ -299,6 +305,7 @@ class _CapsuleContentSheetState extends State<CapsuleContentSheet> {
   @override
   void dispose() {
     _memoController.dispose();
+    _openDaysController.dispose();
     super.dispose();
   }
 
@@ -351,6 +358,14 @@ class _CapsuleContentSheetState extends State<CapsuleContentSheet> {
       return;
     }
 
+    // 잠금 설정 처리: 스위치 켜져있고 일수가 1 이상이면 days_later, 아니면 anytime.
+    final int lockDays =
+        _lockEnabled ? (int.tryParse(_openDaysController.text.trim()) ?? 0) : 0;
+    final String openOption = lockDays > 0
+        ? kCapsuleOpenOptionDaysLater
+        : kCapsuleOpenOptionAnytime;
+    final int? openAfterDays = lockDays > 0 ? lockDays : null;
+
     Navigator.pop(context);
     widget.onConfirm(
       CapsuleData(
@@ -362,6 +377,8 @@ class _CapsuleContentSheetState extends State<CapsuleContentSheet> {
         friendIds: widget.isGroupCapsule
             ? _selectedFriendIds.toList(growable: false)
             : const <String>[],
+        openOption: openOption,
+        openAfterDays: openAfterDays,
       ),
     );
   }
@@ -462,6 +479,10 @@ class _CapsuleContentSheetState extends State<CapsuleContentSheet> {
           _buildSectionTitle(Icons.sentiment_satisfied_alt_outlined, '감정상태 등록'),
           const SizedBox(height: 18),
           _buildEmotionSection(),
+          const SizedBox(height: 30),
+          _buildSectionTitle(Icons.lock_clock_outlined, '잠금 설정 (선택)'),
+          const SizedBox(height: 18),
+          _buildLockSection(),
           if (widget.isGroupCapsule) ...<Widget>[
             const SizedBox(height: 30),
             _buildSectionTitle(Icons.diversity_3_outlined, '친구 선택'),
@@ -603,6 +624,92 @@ class _CapsuleContentSheetState extends State<CapsuleContentSheet> {
           ),
         );
       }).toList(),
+    );
+  }
+
+  Widget _buildLockSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        const Text(
+          '잠그면 정해진 일수 후에만 캡슐을 열 수 있어요.\n잠그지 않으면 언제든지 열 수 있어요.',
+          style: TextStyle(color: _mutedText, fontSize: 12, height: 1.4),
+        ),
+        const SizedBox(height: 12),
+        SwitchListTile.adaptive(
+          contentPadding: EdgeInsets.zero,
+          dense: true,
+          value: _lockEnabled,
+          onChanged: (bool value) => setState(() => _lockEnabled = value),
+          activeColor: _brown,
+          title: Text(
+            _lockEnabled ? '잠금 사용 중' : '잠금 없음 (언제든지 열람)',
+            style: const TextStyle(
+              color: _darkText,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        if (_lockEnabled) ...<Widget>[
+          const SizedBox(height: 8),
+          Row(
+            children: <Widget>[
+              const Text(
+                '며칠 후 개봉:',
+                style: TextStyle(
+                  color: _darkText,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(width: 12),
+              SizedBox(
+                width: 80,
+                child: TextField(
+                  controller: _openDaysController,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: <TextInputFormatter>[
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(4),
+                  ],
+                  textAlign: TextAlign.center,
+                  decoration: InputDecoration(
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 10,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: _brown, width: 2),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: _brown, width: 2),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: _brown, width: 3),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              const Text(
+                '일',
+                style: TextStyle(
+                  color: _darkText,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            '예: 30 -> 30일 뒤에 열림 / 365 -> 1년 뒤에 열림',
+            style: TextStyle(color: _mutedText, fontSize: 11),
+          ),
+        ],
+      ],
     );
   }
 
