@@ -93,7 +93,9 @@ class CapsuleDetail {
 }
 
 class CapsuleApi {
-  static const baseUrl = 'https://www.tori-capsule.me';
+  // AuthApi 가 dart-define(API_BASE_URL) 또는 운영 URL 을 알아서 결정하므로 동일하게 사용.
+  // 하드코딩된 운영 URL 로 두면 로컬 서버 테스트 시 캡슐 생성/조회가 운영으로 가서 실패함.
+  static String get baseUrl => AuthApi.baseUrl;
   final _dio = Dio();
 
   static String fileUrl({required String id, required String fileName}) {
