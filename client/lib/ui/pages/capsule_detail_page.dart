@@ -21,9 +21,11 @@ class _CapsuleDetailPageState extends State<CapsuleDetailPage> {
   static const Color _accentColor = Color(0xFFFFB36B);
   static const Color _groupColor = Color(0xFF7EA9D6);
   static const Color _panelShadowColor = Color(0x1A765142);
+  static const Color _deleteColor = Color(0xFFB23A3A);
 
   final CapsuleApi _capsuleApi = CapsuleApi();
   late Future<CapsuleDetail> _futureCapsule;
+  bool _isDeleting = false;
 
   @override
   void initState() {
@@ -37,6 +39,45 @@ class _CapsuleDetailPageState extends State<CapsuleDetailPage> {
       _futureCapsule = future;
     });
     await future;
+  }
+
+  Future<void> _confirmAndDelete() async {
+    if (_isDeleting) return;
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext ctx) => AlertDialog(
+        title: const Text('캡슐 삭제'),
+        content: const Text('이 캡슐을 정말 삭제하시겠어요? 사진, 영상, 음악이 모두 사라지고 되돌릴 수 없어요.'),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: TextButton.styleFrom(foregroundColor: _deleteColor),
+            child: const Text('삭제'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isDeleting = true);
+    final bool ok = await _capsuleApi.deleteCapsule(capsuleId: widget.capsule.id);
+    if (!mounted) return;
+    setState(() => _isDeleting = false);
+
+    if (!ok) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('캡슐을 삭제하지 못했어요.')));
+      return;
+    }
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('캡슐을 삭제했어요.')));
+    Navigator.of(context).pop(true);
   }
 
   @override
@@ -167,23 +208,82 @@ class _CapsuleDetailPageState extends State<CapsuleDetailPage> {
   }
 
   Widget _buildBackButton() {
+    return Row(
+      children: <Widget>[
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => Navigator.of(context).pop(),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Icon(Icons.chevron_left, color: _darkText, size: 32),
+              SizedBox(width: 2),
+              Text(
+                '뒤로',
+                style: TextStyle(
+                  color: _darkText,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const Spacer(),
+        _DeleteButton(
+          onTap: _confirmAndDelete,
+          isLoading: _isDeleting,
+        ),
+      ],
+    );
+  }
+}
+
+class _DeleteButton extends StatelessWidget {
+  const _DeleteButton({required this.onTap, required this.isLoading});
+
+  final VoidCallback onTap;
+  final bool isLoading;
+
+  static const Color _deleteColor = _CapsuleDetailPageState._deleteColor;
+
+  @override
+  Widget build(BuildContext context) {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: () => Navigator.of(context).pop(),
-      child: const Row(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Icon(Icons.chevron_left, color: _darkText, size: 32),
-          SizedBox(width: 2),
-          Text(
-            '뒤로',
-            style: TextStyle(
-              color: _darkText,
-              fontSize: 18,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ],
+      onTap: isLoading ? null : onTap,
+      child: Container(
+        height: 38,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: _deleteColor, width: 2),
+        ),
+        alignment: Alignment.center,
+        child: isLoading
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: _deleteColor,
+                ),
+              )
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: const <Widget>[
+                  Icon(Icons.delete_outline, color: _deleteColor, size: 18),
+                  SizedBox(width: 6),
+                  Text(
+                    '삭제',
+                    style: TextStyle(
+                      color: _deleteColor,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
+              ),
       ),
     );
   }

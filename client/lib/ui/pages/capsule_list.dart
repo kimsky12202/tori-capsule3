@@ -211,7 +211,7 @@ class _CapsuleListPageState extends State<CapsuleListPage> {
     });
   }
 
-  void _openCapsule(CapsuleListItem capsule) {
+  Future<void> _openCapsule(CapsuleListItem capsule) async {
     if (!capsule.canOpenNow) {
       ScaffoldMessenger.of(
         context,
@@ -219,11 +219,14 @@ class _CapsuleListPageState extends State<CapsuleListPage> {
       return;
     }
 
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
+    final bool? deleted = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
         builder: (BuildContext context) => CapsuleDetailPage(capsule: capsule),
       ),
     );
+    if (deleted == true && mounted) {
+      await _refreshCapsules();
+    }
   }
 
   List<CapsuleListItem> _filteredCapsules(List<CapsuleListItem> capsules) {

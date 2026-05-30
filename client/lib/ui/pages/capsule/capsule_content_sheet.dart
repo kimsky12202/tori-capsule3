@@ -2,7 +2,6 @@ import 'dart:io';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../services/friend_api.dart';
@@ -10,6 +9,7 @@ import '../../services/friend_api.dart';
 const String kCapsuleOpenOptionAnytime = 'anytime';
 const String kCapsuleOpenOptionDaysLater = 'days_later';
 const String kCapsuleOpenOptionNextYearSameTime = 'next_year_same_time';
+const String kCapsuleOpenOptionAtDateTime = 'at_datetime';
 
 class CapsuleData {
   final String? memo;
@@ -22,6 +22,7 @@ class CapsuleData {
   final List<String> friendIds;
   final String openOption;
   final int? openAfterDays;
+  final DateTime? openAtUtc;
 
   const CapsuleData({
     this.memo,
@@ -34,6 +35,7 @@ class CapsuleData {
     this.friendIds = const [],
     this.openOption = kCapsuleOpenOptionAnytime,
     this.openAfterDays,
+    this.openAtUtc,
   });
 
   DateTime? calculateOpenAtUtc({DateTime? now}) {
@@ -54,6 +56,8 @@ class CapsuleData {
           baseNow.millisecond,
           baseNow.microsecond,
         );
+      case kCapsuleOpenOptionAtDateTime:
+        return openAtUtc;
       case kCapsuleOpenOptionAnytime:
       default:
         return null;
@@ -289,8 +293,8 @@ class _CapsuleContentSheetState extends State<CapsuleContentSheet> {
 
   // 잠금 설정 (선택). 기본은 잠금 없음(anytime).
   bool _lockEnabled = false;
-  final TextEditingController _openDaysController =
-      TextEditingController(text: '30');
+  // 잠금 해제 일시 (로컬). null 이면 아직 미선택.
+  DateTime? _selectedOpenAt;
 
   static const List<String> _emotions = <String>['😊', '😢', '😍', '😡', '😎'];
 
@@ -305,7 +309,6 @@ class _CapsuleContentSheetState extends State<CapsuleContentSheet> {
   @override
   void dispose() {
     _memoController.dispose();
-    _openDaysController.dispose();
     super.dispose();
   }
 
@@ -350,6 +353,48 @@ class _CapsuleContentSheetState extends State<CapsuleContentSheet> {
     }
   }
 
+  Future<void> _pickOpenAt() async {
+    final DateTime now = DateTime.now();
+    final DateTime initialDate =
+        _selectedOpenAt ?? now.add(const Duration(days: 1));
+    final DateTime? pickedDate = await showDatePicker(
+      context: context,
+      initialDate: initialDate.isBefore(now) ? now : initialDate,
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 365 * 10)),
+      helpText: '잠금 해제 날짜',
+    );
+    if (pickedDate == null || !mounted) return;
+
+    final TimeOfDay? pickedTime = await showTimePicker(
+      context: context,
+      initialTime: _selectedOpenAt != null
+          ? TimeOfDay.fromDateTime(_selectedOpenAt!)
+          : TimeOfDay.fromDateTime(now.add(const Duration(minutes: 5))),
+      helpText: '잠금 해제 시각',
+    );
+    if (pickedTime == null || !mounted) return;
+
+    final DateTime combined = DateTime(
+      pickedDate.year,
+      pickedDate.month,
+      pickedDate.day,
+      pickedTime.hour,
+      pickedTime.minute,
+    );
+
+    if (!combined.isAfter(DateTime.now())) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('잠금 해제 시각은 현재보다 이후여야 해요.')));
+      return;
+    }
+
+    setState(() {
+      _selectedOpenAt = combined;
+    });
+  }
+
   void _submitCapsule() {
     if (widget.isGroupCapsule && _selectedFriendIds.isEmpty) {
       ScaffoldMessenger.of(
@@ -358,13 +403,24 @@ class _CapsuleContentSheetState extends State<CapsuleContentSheet> {
       return;
     }
 
-    // 잠금 설정 처리: 스위치 켜져있고 일수가 1 이상이면 days_later, 아니면 anytime.
-    final int lockDays =
-        _lockEnabled ? (int.tryParse(_openDaysController.text.trim()) ?? 0) : 0;
-    final String openOption = lockDays > 0
-        ? kCapsuleOpenOptionDaysLater
-        : kCapsuleOpenOptionAnytime;
-    final int? openAfterDays = lockDays > 0 ? lockDays : null;
+    String openOption = kCapsuleOpenOptionAnytime;
+    DateTime? openAtUtc;
+    if (_lockEnabled) {
+      if (_selectedOpenAt == null) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('잠금 해제 일시를 선택해주세요.')));
+        return;
+      }
+      if (!_selectedOpenAt!.isAfter(DateTime.now())) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('잠금 해제 시각이 이미 지났어요.')));
+        return;
+      }
+      openOption = kCapsuleOpenOptionAtDateTime;
+      openAtUtc = _selectedOpenAt!.toUtc();
+    }
 
     Navigator.pop(context);
     widget.onConfirm(
@@ -378,7 +434,7 @@ class _CapsuleContentSheetState extends State<CapsuleContentSheet> {
             ? _selectedFriendIds.toList(growable: false)
             : const <String>[],
         openOption: openOption,
-        openAfterDays: openAfterDays,
+        openAtUtc: openAtUtc,
       ),
     );
   }
@@ -628,11 +684,16 @@ class _CapsuleContentSheetState extends State<CapsuleContentSheet> {
   }
 
   Widget _buildLockSection() {
+    final DateTime? selected = _selectedOpenAt;
+    final String selectedLabel = selected == null
+        ? '잠금 해제 일시를 선택하세요'
+        : _formatOpenAtForDisplay(selected);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         const Text(
-          '잠그면 정해진 일수 후에만 캡슐을 열 수 있어요.\n잠그지 않으면 언제든지 열 수 있어요.',
+          '잠그면 선택한 일시 이후에만 캡슐을 열 수 있어요.\n잠그지 않으면 언제든지 열 수 있어요.',
           style: TextStyle(color: _mutedText, fontSize: 12, height: 1.4),
         ),
         const SizedBox(height: 12),
@@ -640,7 +701,14 @@ class _CapsuleContentSheetState extends State<CapsuleContentSheet> {
           contentPadding: EdgeInsets.zero,
           dense: true,
           value: _lockEnabled,
-          onChanged: (bool value) => setState(() => _lockEnabled = value),
+          onChanged: (bool value) {
+            setState(() {
+              _lockEnabled = value;
+              if (!value) {
+                _selectedOpenAt = null;
+              }
+            });
+          },
           activeColor: _brown,
           title: Text(
             _lockEnabled ? '잠금 사용 중' : '잠금 없음 (언제든지 열람)',
@@ -652,65 +720,59 @@ class _CapsuleContentSheetState extends State<CapsuleContentSheet> {
         ),
         if (_lockEnabled) ...<Widget>[
           const SizedBox(height: 8),
-          Row(
-            children: <Widget>[
-              const Text(
-                '며칠 후 개봉:',
-                style: TextStyle(
-                  color: _darkText,
-                  fontWeight: FontWeight.w700,
+          Material(
+            color: _fieldFill,
+            child: InkWell(
+              onTap: _pickOpenAt,
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
                 ),
-              ),
-              const SizedBox(width: 12),
-              SizedBox(
-                width: 80,
-                child: TextField(
-                  controller: _openDaysController,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: <TextInputFormatter>[
-                    FilteringTextInputFormatter.digitsOnly,
-                    LengthLimitingTextInputFormatter(4),
+                decoration: BoxDecoration(
+                  border: Border.all(color: _brown, width: 3),
+                ),
+                child: Row(
+                  children: <Widget>[
+                    const Icon(Icons.event, color: _brown, size: 22),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        selectedLabel,
+                        style: TextStyle(
+                          color: selected == null ? _mutedText : _darkText,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    const Icon(
+                      Icons.chevron_right,
+                      color: _brown,
+                      size: 22,
+                    ),
                   ],
-                  textAlign: TextAlign.center,
-                  decoration: InputDecoration(
-                    isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 10,
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: _brown, width: 2),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: _brown, width: 2),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: _brown, width: 3),
-                    ),
-                  ),
                 ),
               ),
-              const SizedBox(width: 6),
-              const Text(
-                '일',
-                style: TextStyle(
-                  color: _darkText,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
+            ),
           ),
           const SizedBox(height: 6),
           const Text(
-            '예: 30 -> 30일 뒤에 열림 / 365 -> 1년 뒤에 열림',
+            '날짜와 시간을 분 단위까지 정할 수 있어요.',
             style: TextStyle(color: _mutedText, fontSize: 11),
           ),
         ],
       ],
     );
+  }
+
+  String _formatOpenAtForDisplay(DateTime dt) {
+    final String mm = dt.month.toString().padLeft(2, '0');
+    final String dd = dt.day.toString().padLeft(2, '0');
+    final String hh = dt.hour.toString().padLeft(2, '0');
+    final String mi = dt.minute.toString().padLeft(2, '0');
+    return '${dt.year}년 $mm월 $dd일 $hh시 $mi분';
   }
 
   Widget _buildFriendSection() {

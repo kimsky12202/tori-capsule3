@@ -159,6 +159,8 @@ class CapsuleApi {
         MapEntry('open_option', data.openOption),
         if (data.openAfterDays != null)
           MapEntry('open_after_days', data.openAfterDays!.toString()),
+        if (data.openAtUtc != null)
+          MapEntry('open_at', data.openAtUtc!.toUtc().toIso8601String()),
         if (design != null && design.trim().isNotEmpty)
           MapEntry('design', design.trim()),
         if (data.memo != null) MapEntry('memo', data.memo!),
@@ -201,6 +203,25 @@ class CapsuleApi {
       return response.data['capsule']['id'] as String?;
     } catch (_) {
       return null;
+    }
+  }
+
+  Future<bool> deleteCapsule({required String capsuleId}) async {
+    final token = AuthApi.accessToken;
+    if (token == null || token.isEmpty) {
+      debugPrint('deleteCapsule: not signed in');
+      return false;
+    }
+
+    try {
+      await _dio.delete(
+        '$baseUrl/capsules/$capsuleId',
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+      return true;
+    } catch (error) {
+      debugPrint('deleteCapsule failed: $error');
+      return false;
     }
   }
 

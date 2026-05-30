@@ -16,6 +16,7 @@ const (
 	capsuleOpenOptionAnytime          = "anytime"
 	capsuleOpenOptionDaysLater        = "days_later"
 	capsuleOpenOptionNextYearSameTime = "next_year_same_time"
+	capsuleOpenOptionAtDateTime       = "at_datetime"
 )
 
 type capsuleOpenConfig struct {
@@ -57,8 +58,29 @@ func parseCapsuleOpenConfig(re *core.RequestEvent, now time.Time) (capsuleOpenCo
 			OpenAt:        &openAt,
 			NotifyEnabled: true,
 		}, nil
+	case capsuleOpenOptionAtDateTime:
+		rawAt := strings.TrimSpace(re.Request.FormValue("open_at"))
+		if rawAt == "" {
+			return capsuleOpenConfig{}, errors.New("open_at must be provided for at_datetime")
+		}
+		openAt, err := time.Parse(time.RFC3339, rawAt)
+		if err != nil {
+			return capsuleOpenConfig{}, errors.New("open_at must be RFC3339 datetime")
+		}
+		openAt = openAt.UTC()
+		if !openAt.After(now) {
+			return capsuleOpenConfig{}, errors.New("open_at must be in the future")
+		}
+		if openAt.After(now.AddDate(10, 0, 0)) {
+			return capsuleOpenConfig{}, errors.New("open_at must be within 10 years")
+		}
+		return capsuleOpenConfig{
+			Option:        option,
+			OpenAt:        &openAt,
+			NotifyEnabled: true,
+		}, nil
 	default:
-		return capsuleOpenConfig{}, errors.New("open_option must be one of: anytime, days_later, next_year_same_time")
+		return capsuleOpenConfig{}, errors.New("open_option must be one of: anytime, days_later, next_year_same_time, at_datetime")
 	}
 }
 

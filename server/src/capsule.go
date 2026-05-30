@@ -19,6 +19,7 @@ func registerCapsuleRoutes(app *pocketbase.PocketBase) {
 			e.Router.GET("/capsules", listCapsules(app))
 			e.Router.GET("/capsules/{id}", getCapsule(app))
 			e.Router.PATCH("/capsules/{id}/bury", buryCapsule(app))
+			e.Router.DELETE("/capsules/{id}", deleteCapsule(app))
 			return e.Next()
 		},
 	})
@@ -252,6 +253,52 @@ func getCapsule(app *pocketbase.PocketBase) func(*core.RequestEvent) error {
 				"open":             openMeta,
 			},
 		})
+	}
+}
+
+func deleteCapsule(app *pocketbase.PocketBase) func(*core.RequestEvent) error {
+	return func(re *core.RequestEvent) error {
+		if re.Auth == nil {
+			return re.JSON(http.StatusUnauthorized, map[string]string{"message": "unauthorized"})
+		}
+
+		record, err := app.FindRecordById("capsules", re.Request.PathValue("id"))
+		if err != nil {
+			return re.JSON(http.StatusNotFound, map[string]string{"message": "capsule not found"})
+		}
+
+		// 본인이 만든 캡슐만 삭제 가능 (그룹 멤버는 안 됨)
+		if record.GetString("users") != re.Auth.Id {
+			return re.JSON(http.StatusForbidden, map[string]string{"message": "only the owner can delete this capsule"})
+		}
+
+		// 지금 열 수 있는 상태일 때만 삭제 허용 (잠금 중인 캡슐은 못 지움)
+		_, canOpenNow, err := buildCapsuleOpenMeta(app, record.Id, time.Now().UTC())
+		if err != nil {
+			return re.JSON(http.StatusInternalServerError, map[string]string{"message": err.Error()})
+		}
+		if !canOpenNow {
+			return re.JSON(http.StatusLocked, map[string]string{"message": "locked capsule cannot be deleted"})
+		}
+
+		// 의존 레코드부터 제거: open_settings, members
+		if setting, err := loadCapsuleOpenSetting(app, record.Id); err == nil && setting != nil {
+			_ = app.Delete(setting)
+		}
+		members, err := app.FindAllRecords("capsule_members",
+			dbx.HashExp{"capsule": record.Id},
+		)
+		if err == nil {
+			for _, m := range members {
+				_ = app.Delete(m)
+			}
+		}
+
+		if err := app.Delete(record); err != nil {
+			return re.JSON(http.StatusInternalServerError, map[string]string{"message": err.Error()})
+		}
+
+		return re.JSON(http.StatusOK, map[string]any{"deleted": record.Id})
 	}
 }
 
