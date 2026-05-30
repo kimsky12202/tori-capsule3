@@ -39,6 +39,9 @@ class _MainTabPageState extends State<MainTabPage>
   final CapsuleApi _capsuleApi = CapsuleApi();
   // 지도 페이지를 외부에서 새로고침하기 위한 키 (캡슐 생성 후 등)
   final GlobalKey<MapPageState> _mapPageKey = GlobalKey<MapPageState>();
+  // 캡슐 탭(2.5D 룸)에서 등록 애니메이션을 외부에서 트리거하기 위한 키
+  final GlobalKey<TimecapsulePageState> _capsulePageKey =
+      GlobalKey<TimecapsulePageState>();
   int _selectedIndex = 0;
   bool _isCreatingCapsule = false;
 
@@ -153,6 +156,14 @@ class _MainTabPageState extends State<MainTabPage>
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text('캡슐이 추가되었습니다.')));
+
+    // 캡슐 탭(2.5D 룸)으로 이동해서 등록 애니메이션을 보여준다.
+    _selectTab(1);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _capsulePageKey.currentState?.playRegisterAnimation(
+        capsuleId: capsuleId,
+      );
+    });
   }
 
   Future<void> _scheduleCapsuleOpeningAlertIfNeeded(
@@ -226,7 +237,7 @@ class _MainTabPageState extends State<MainTabPage>
       controller: _controller,
       children: <Widget>[
         MapPage(key: _mapPageKey),
-        const TimecapsulePage(),
+        TimecapsulePage(key: _capsulePageKey),
         const ChallengeTabPage(),
         const SettingPage(),
       ],

@@ -7,11 +7,15 @@ class TimecapsulePage extends StatefulWidget {
   const TimecapsulePage({super.key});
 
   @override
-  State<TimecapsulePage> createState() => _TimecapsulePageState();
+  State<TimecapsulePage> createState() => TimecapsulePageState();
 }
 
-class _TimecapsulePageState extends State<TimecapsulePage> {
+class TimecapsulePageState extends State<TimecapsulePage>
+    with AutomaticKeepAliveClientMixin {
   late final TimecapsuleGame _game;
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -19,8 +23,17 @@ class _TimecapsulePageState extends State<TimecapsulePage> {
     _game = TimecapsuleGame();
   }
 
+  Future<void> playRegisterAnimation({
+    String design = 'base',
+    String? capsuleId,
+  }) async {
+    await _game.loaded;
+    await _game.onCapsuleRegistered(design: design, capsuleId: capsuleId);
+  }
+
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return Scaffold(
       body: Stack(
         children: [
