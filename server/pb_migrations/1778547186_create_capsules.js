@@ -125,7 +125,6 @@ migrate((app) => {
     indexes: [
       "CREATE INDEX idx_capsules_users ON capsules (users)",
       "CREATE INDEX idx_capsules_status ON capsules (status)",
-      "CREATE INDEX idx_capsules_users_created ON capsules (users, created)",
     ],
   });
 
