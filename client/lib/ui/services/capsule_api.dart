@@ -140,6 +140,7 @@ class CapsuleApi {
     required CapsuleData data,
     required double latitude,
     required double longitude,
+    String? design,
     List<String> memberIds = const [],
   }) async {
     final token = AuthApi.accessToken;
@@ -158,6 +159,8 @@ class CapsuleApi {
         MapEntry('open_option', data.openOption),
         if (data.openAfterDays != null)
           MapEntry('open_after_days', data.openAfterDays!.toString()),
+        if (design != null && design.trim().isNotEmpty)
+          MapEntry('design', design.trim()),
         if (data.memo != null) MapEntry('memo', data.memo!),
         if (data.emotion != null) MapEntry('emotion', data.emotion!),
         if (data.musicTitle != null) MapEntry('music_title', data.musicTitle!),
