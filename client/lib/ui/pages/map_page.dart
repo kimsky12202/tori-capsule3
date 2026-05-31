@@ -494,8 +494,8 @@ class MapPageState extends State<MapPage> with TickerProviderStateMixin {
       markers.add(
         Marker(
           point: point,
-          width: 56,
-          height: 70,
+          width: 80,
+          height: 100,
           alignment: Alignment.bottomCenter,
           child: GestureDetector(
             onTap: () => _openSpotSheet(spot),
@@ -513,8 +513,8 @@ class MapPageState extends State<MapPage> with TickerProviderStateMixin {
         markers.add(
           Marker(
             point: point,
-            width: 56,
-            height: 70,
+            width: 80,
+            height: 100,
             alignment: Alignment.bottomCenter,
             child: GestureDetector(
               onTap: () => _openCapsuleSheet(capsule),
@@ -674,6 +674,12 @@ class _SpotMarker extends StatelessWidget {
       'assets/images/markers/$fileName',
       fit: BoxFit.contain,
       filterQuality: FilterQuality.medium,
+      errorBuilder: (_, __, ___) => _MarkerFallback(
+        label: spot.visited ? '!' : '?',
+        color: spot.visited
+            ? const Color(0xFFA14040)
+            : const Color(0xFF6B6862),
+      ),
     );
   }
 }
@@ -695,6 +701,39 @@ class _CapsuleMarker extends StatelessWidget {
       'assets/images/markers/capsule_$designKey$suffix.png',
       fit: BoxFit.contain,
       filterQuality: FilterQuality.medium,
+      errorBuilder: (_, __, ___) => _MarkerFallback(
+        label: locked ? '🔒' : '📦',
+        color: locked
+            ? const Color(0xFFA14040)
+            : const Color(0xFF1FAA8C),
+      ),
+    );
+  }
+}
+
+class _MarkerFallback extends StatelessWidget {
+  const _MarkerFallback({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        shape: BoxShape.circle,
+        border: Border.all(color: color, width: 3),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontSize: 18,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
     );
   }
 }
