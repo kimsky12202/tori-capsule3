@@ -116,6 +116,7 @@ class _MainTabPageState extends State<MainTabPage>
       data: data,
       latitude: latitude,
       longitude: longitude,
+      design: data.design,
       memberIds: data.friendIds,
     );
 
@@ -162,6 +163,7 @@ class _MainTabPageState extends State<MainTabPage>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _capsulePageKey.currentState?.playRegisterAnimation(
         capsuleId: capsuleId,
+        design: data.design,
       );
     });
   }

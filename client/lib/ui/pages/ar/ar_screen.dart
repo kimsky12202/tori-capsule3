@@ -22,11 +22,25 @@ class CapsuleItem {
 
 const List<CapsuleItem> kAvailableCapsules = [
   CapsuleItem(
-    id: 'default',
+    id: 'base',
     name: '자계함',
-    imagePath:'assets/images/capsule/3D/base/basic_cube.png',
+    imagePath: 'assets/images/capsule/3D/base/basic_cube.png',
     icon: Icons.inventory_2_outlined,
     color: Color(0xFFA14040),
+  ),
+  CapsuleItem(
+    id: 'gyeongju',
+    name: '경주함',
+    imagePath: 'assets/images/capsule/3D/gyeongju/gyeongju.png',
+    icon: Icons.inventory_2_outlined,
+    color: Color(0xFF1FAA8C),
+  ),
+  CapsuleItem(
+    id: 'seoul',
+    name: '서울함',
+    imagePath: 'assets/images/capsule/3D/seoul/seoul.png',
+    icon: Icons.inventory_2_outlined,
+    color: Color(0xFF3A5BA0),
   ),
 ];
 

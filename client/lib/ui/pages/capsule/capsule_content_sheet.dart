@@ -11,6 +11,37 @@ const String kCapsuleOpenOptionDaysLater = 'days_later';
 const String kCapsuleOpenOptionNextYearSameTime = 'next_year_same_time';
 const String kCapsuleOpenOptionAtDateTime = 'at_datetime';
 
+/// 캡슐 디자인 (서버 design 필드와 매칭)
+class CapsuleDesignOption {
+  const CapsuleDesignOption({
+    required this.id,
+    required this.name,
+    required this.previewAsset,
+  });
+
+  final String id;
+  final String name;
+  final String previewAsset;
+}
+
+const List<CapsuleDesignOption> kCapsuleDesignOptions = [
+  CapsuleDesignOption(
+    id: 'base',
+    name: '자계함',
+    previewAsset: 'assets/images/capsule/3D/base/basic_cube.png',
+  ),
+  CapsuleDesignOption(
+    id: 'gyeongju',
+    name: '경주함',
+    previewAsset: 'assets/images/capsule/3D/gyeongju/gyeongju.png',
+  ),
+  CapsuleDesignOption(
+    id: 'seoul',
+    name: '서울함',
+    previewAsset: 'assets/images/capsule/3D/seoul/seoul.png',
+  ),
+];
+
 class CapsuleData {
   final String? memo;
   final String? emotion;
@@ -23,6 +54,7 @@ class CapsuleData {
   final String openOption;
   final int? openAfterDays;
   final DateTime? openAtUtc;
+  final String design;
 
   const CapsuleData({
     this.memo,
@@ -36,6 +68,7 @@ class CapsuleData {
     this.openOption = kCapsuleOpenOptionAnytime,
     this.openAfterDays,
     this.openAtUtc,
+    this.design = 'base',
   });
 
   DateTime? calculateOpenAtUtc({DateTime? now}) {
@@ -291,6 +324,9 @@ class _CapsuleContentSheetState extends State<CapsuleContentSheet> {
   List<FriendListItem> _friends = const <FriendListItem>[];
   final Set<String> _selectedFriendIds = <String>{};
 
+  // 캡슐 디자인 (기본은 base)
+  String _selectedDesign = 'base';
+
   // 잠금 설정 (선택). 기본은 잠금 없음(anytime).
   bool _lockEnabled = false;
   // 잠금 해제 일시 (로컬). null 이면 아직 미선택.
@@ -435,6 +471,7 @@ class _CapsuleContentSheetState extends State<CapsuleContentSheet> {
             : const <String>[],
         openOption: openOption,
         openAtUtc: openAtUtc,
+        design: _selectedDesign,
       ),
     );
   }
@@ -526,6 +563,10 @@ class _CapsuleContentSheetState extends State<CapsuleContentSheet> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
+          _buildSectionTitle(Icons.inventory_2_outlined, '캡슐 디자인'),
+          const SizedBox(height: 18),
+          _buildDesignSelector(),
+          const SizedBox(height: 30),
           _buildPhotoPicker(),
           const SizedBox(height: 28),
           _buildSectionTitle(Icons.comment_outlined, '코멘트 작성'),
@@ -653,6 +694,58 @@ class _CapsuleContentSheetState extends State<CapsuleContentSheet> {
           borderSide: const BorderSide(color: _brown, width: 4),
         ),
       ),
+    );
+  }
+
+  Widget _buildDesignSelector() {
+    return Row(
+      children: kCapsuleDesignOptions.map((option) {
+        final bool isSelected = _selectedDesign == option.id;
+        return Expanded(
+          child: Padding(
+            padding: EdgeInsets.only(
+              right: option == kCapsuleDesignOptions.last ? 0 : 10,
+            ),
+            child: GestureDetector(
+              onTap: () => setState(() => _selectedDesign = option.id),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                  color: isSelected ? const Color(0xFFFFE2B8) : Colors.white,
+                  border: Border.all(
+                    color: _brown,
+                    width: isSelected ? 5 : 3,
+                  ),
+                ),
+                child: Column(
+                  children: <Widget>[
+                    SizedBox(
+                      height: 56,
+                      child: Image.asset(
+                        option.previewAsset,
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, __, ___) =>
+                            const Icon(Icons.inventory_2_outlined, color: _brown, size: 40),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      option.name,
+                      style: TextStyle(
+                        color: _darkText,
+                        fontSize: 13,
+                        fontWeight: isSelected
+                            ? FontWeight.w900
+                            : FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      }).toList(),
     );
   }
 

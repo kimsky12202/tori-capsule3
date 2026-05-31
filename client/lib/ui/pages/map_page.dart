@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:math' as math;
-import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -514,8 +513,9 @@ class MapPageState extends State<MapPage> with TickerProviderStateMixin {
         markers.add(
           Marker(
             point: point,
-            width: 48,
-            height: 48,
+            width: 56,
+            height: 70,
+            alignment: Alignment.bottomCenter,
             child: GestureDetector(
               onTap: () => _openCapsuleSheet(capsule),
               child: _CapsuleMarker(
@@ -653,70 +653,27 @@ class _SpotMarker extends StatelessWidget {
 
   final TouristSpot spot;
 
-  static const _borderColor = Color(0xFF2E2B2A);
-  static const _cream = Color(0xFFF4F1EA);
-  static const _gold = Color(0xFFC9A227);
+  // category 값(소문자) → 마커 파일명. 매칭 안되는 카테고리는 visited_default 폴백.
+  static const Map<String, String> _categoryImage = {
+    'palace': 'palace.png',
+    'tower': 'tower.png',
+    'pagoda': 'pagoda.png',
+    'museum': 'museum.png',
+  };
 
   @override
   Widget build(BuildContext context) {
-    final visited = spot.visited;
-    final color = spot.markerColor;
-    final bgColor = visited ? color : _cream;
-    final iconColor = visited ? Colors.white : const Color(0xFF6B6862);
-
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        // 핀 꼬리 (맨 아래, 좌우 중앙)
-        Positioned(
-          bottom: 0,
-          left: 21, // (56 - 14) / 2
-          child: CustomPaint(
-            size: const Size(14, 14),
-            painter: _MarkerTailPainter(
-              fill: bgColor,
-              border: _borderColor,
-            ),
-          ),
-        ),
-        // 본체 (둥근 사각형, 한옥 픽셀아트 톤)
-        Positioned(
-          top: 12,
-          left: 5, // (56 - 46) / 2
-          child: Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              color: bgColor,
-              borderRadius: BorderRadius.circular(7),
-              border: Border.all(color: _borderColor, width: 2.5),
-            ),
-            alignment: Alignment.center,
-            child: Icon(
-              visited ? spot.markerIcon : Icons.help_outline,
-              color: iconColor,
-              size: 22,
-            ),
-          ),
-        ),
-        // 발견 도장 (황금 별, 우측 상단에 살짝 걸침)
-        if (visited)
-          Positioned(
-            top: 8,
-            right: 3,
-            child: Container(
-              width: 18,
-              height: 18,
-              decoration: BoxDecoration(
-                color: _gold,
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: _borderColor, width: 1.5),
-              ),
-              alignment: Alignment.center,
-              child: const Icon(Icons.star, color: Colors.white, size: 10),
-            ),
-          ),
-      ],
+    final String fileName;
+    if (!spot.visited) {
+      fileName = 'unknown.png';
+    } else {
+      final String cat = (spot.category ?? '').toLowerCase().trim();
+      fileName = _categoryImage[cat] ?? 'visited_default.png';
+    }
+    return Image.asset(
+      'assets/images/markers/$fileName',
+      fit: BoxFit.contain,
+      filterQuality: FilterQuality.medium,
     );
   }
 }
@@ -727,63 +684,17 @@ class _CapsuleMarker extends StatelessWidget {
   final bool locked;
   final String design;
 
+  // 서버 design 값과 일치하는 마커 자산 키. 미지의 값은 base 로 폴백.
+  static const Set<String> _knownDesigns = {'base', 'gyeongju', 'seoul'};
+
   @override
   Widget build(BuildContext context) {
-    final color = locked ? const Color(0xFFA14040) : const Color(0xFF1FAA8C);
-    return Stack(
-      clipBehavior: Clip.none,
-      alignment: Alignment.center,
-      children: [
-        // 캡슐 디자인 스프라이트. 매칭되는 에셋이 없으면 잠금 원형으로 대체.
-        Image.asset(
-          'assets/images/capsule/$design/south-east.png',
-          width: 40,
-          height: 40,
-          fit: BoxFit.contain,
-          filterQuality: FilterQuality.medium,
-          errorBuilder: (_, __, ___) => Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-              border: Border.all(color: color, width: 2),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.15),
-                  blurRadius: 4,
-                ),
-              ],
-            ),
-          ),
-        ),
-        // 잠금/해제 상태 배지
-        Positioned(
-          right: 0,
-          bottom: 0,
-          child: Container(
-            width: 18,
-            height: 18,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-              border: Border.all(color: color, width: 2),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.2),
-                  blurRadius: 3,
-                ),
-              ],
-            ),
-            alignment: Alignment.center,
-            child: Icon(
-              locked ? Icons.lock_outline : Icons.lock_open_outlined,
-              color: color,
-              size: 10,
-            ),
-          ),
-        ),
-      ],
+    final String designKey = _knownDesigns.contains(design) ? design : 'base';
+    final String suffix = locked ? '_locked' : '';
+    return Image.asset(
+      'assets/images/markers/capsule_$designKey$suffix.png',
+      fit: BoxFit.contain,
+      filterQuality: FilterQuality.medium,
     );
   }
 }
@@ -812,41 +723,6 @@ class _UserMarker extends StatelessWidget {
   }
 }
 
-class _MarkerTailPainter extends CustomPainter {
-  _MarkerTailPainter({required this.fill, required this.border});
-
-  final Color fill;
-  final Color border;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final fillPaint = Paint()
-      ..color = fill
-      ..style = PaintingStyle.fill;
-    final path = ui.Path()
-      ..moveTo(0, 0)
-      ..lineTo(size.width, 0)
-      ..lineTo(size.width / 2, size.height)
-      ..close();
-    canvas.drawPath(path, fillPaint);
-
-    // 두 사선만 외곽선 (위쪽은 본체와 닿아 가려짐)
-    final borderPaint = Paint()
-      ..color = border
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.5
-      ..strokeJoin = StrokeJoin.round;
-    final borderPath = ui.Path()
-      ..moveTo(0, 0)
-      ..lineTo(size.width / 2, size.height)
-      ..lineTo(size.width, 0);
-    canvas.drawPath(borderPath, borderPaint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _MarkerTailPainter oldDelegate) =>
-      oldDelegate.fill != fill || oldDelegate.border != border;
-}
 
 class _MissingTokenView extends StatelessWidget {
   const _MissingTokenView();

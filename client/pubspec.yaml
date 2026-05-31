@@ -55,6 +55,8 @@ flutter:
 
   assets:
     - assets/images/capsule/base/
+    - assets/images/capsule/gyeongju/
+    - assets/images/capsule/seoul/
     - assets/images/auth/
     - assets/images/room/
 
@@ -69,8 +71,13 @@ flutter:
     - assets/images/character/carry/east/
     - assets/images/character/carry/west/
 
-    # 썸네일
+    # 썸네일 (AR 캡슐 선택 미리보기 + 캡슐 작성 시트 디자인 선택)
     - assets/images/capsule/3D/base/
+    - assets/images/capsule/3D/gyeongju/
+    - assets/images/capsule/3D/seoul/
+
+    # 지도 마커 (관광지 카테고리별 + 캡슐 디자인별)
+    - assets/images/markers/
 
   fonts:                            
     - family: Workbench
