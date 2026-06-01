@@ -494,8 +494,8 @@ class MapPageState extends State<MapPage> with TickerProviderStateMixin {
       markers.add(
         Marker(
           point: point,
-          width: 140,
-          height: 170,
+          width: 90,
+          height: 110,
           alignment: Alignment.bottomCenter,
           child: GestureDetector(
             onTap: () => _openSpotSheet(spot),
@@ -513,8 +513,8 @@ class MapPageState extends State<MapPage> with TickerProviderStateMixin {
         markers.add(
           Marker(
             point: point,
-            width: 140,
-            height: 170,
+            width: 90,
+            height: 110,
             alignment: Alignment.bottomCenter,
             child: GestureDetector(
               onTap: () => _openCapsuleSheet(capsule),
@@ -708,29 +708,25 @@ class _CapsuleMarker extends StatelessWidget {
 }
 
 /// PNG 가운데에 핀이 작게 박혀있는 경우 여백을 크롭해서 핀만 크게 보이도록.
-/// scale 값은 핀이 캔버스의 ~25% 영역에 그려져있다고 가정한 값.
+/// scale 값은 핀이 캔버스의 ~50% 영역에 그려져있다고 가정한 값.
 class _ScaledPinImage extends StatelessWidget {
   const _ScaledPinImage({required this.asset, required this.fallback});
 
   final String asset;
   final Widget fallback;
 
-  static const double _scale = 4.5;
+  static const double _scale = 2.0;
 
   @override
   Widget build(BuildContext context) {
     return ClipRect(
-      child: OverflowBox(
-        maxWidth: double.infinity,
-        maxHeight: double.infinity,
-        child: Transform.scale(
-          scale: _scale,
-          child: Image.asset(
-            asset,
-            fit: BoxFit.contain,
-            filterQuality: FilterQuality.medium,
-            errorBuilder: (_, __, ___) => fallback,
-          ),
+      child: Transform.scale(
+        scale: _scale,
+        child: Image.asset(
+          asset,
+          fit: BoxFit.contain,
+          filterQuality: FilterQuality.medium,
+          errorBuilder: (_, __, ___) => fallback,
         ),
       ),
     );
