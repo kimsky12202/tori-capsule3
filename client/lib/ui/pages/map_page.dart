@@ -494,8 +494,8 @@ class MapPageState extends State<MapPage> with TickerProviderStateMixin {
       markers.add(
         Marker(
           point: point,
-          width: 110,
-          height: 130,
+          width: 180,
+          height: 220,
           alignment: Alignment.bottomCenter,
           child: GestureDetector(
             onTap: () => _openSpotSheet(spot),
@@ -513,8 +513,8 @@ class MapPageState extends State<MapPage> with TickerProviderStateMixin {
         markers.add(
           Marker(
             point: point,
-            width: 110,
-            height: 130,
+            width: 180,
+            height: 220,
             alignment: Alignment.bottomCenter,
             child: GestureDetector(
               onTap: () => _openCapsuleSheet(capsule),
@@ -708,14 +708,14 @@ class _CapsuleMarker extends StatelessWidget {
 }
 
 /// PNG 가운데에 핀이 작게 박혀있는 경우 여백을 크롭해서 핀만 크게 보이도록.
-/// scale 값은 핀이 캔버스의 ~33% 영역에 그려져있다고 가정한 값.
+/// scale 값은 핀이 캔버스의 ~25% 영역에 그려져있다고 가정한 값.
 class _ScaledPinImage extends StatelessWidget {
   const _ScaledPinImage({required this.asset, required this.fallback});
 
   final String asset;
   final Widget fallback;
 
-  static const double _scale = 3.0;
+  static const double _scale = 4.0;
 
   @override
   Widget build(BuildContext context) {
