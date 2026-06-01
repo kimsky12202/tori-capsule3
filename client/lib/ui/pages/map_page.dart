@@ -494,8 +494,8 @@ class MapPageState extends State<MapPage> with TickerProviderStateMixin {
       markers.add(
         Marker(
           point: point,
-          width: 100,
-          height: 120,
+          width: 140,
+          height: 170,
           alignment: Alignment.bottomCenter,
           child: GestureDetector(
             onTap: () => _openSpotSheet(spot),
@@ -513,8 +513,8 @@ class MapPageState extends State<MapPage> with TickerProviderStateMixin {
         markers.add(
           Marker(
             point: point,
-            width: 100,
-            height: 120,
+            width: 140,
+            height: 170,
             alignment: Alignment.bottomCenter,
             child: GestureDetector(
               onTap: () => _openCapsuleSheet(capsule),
