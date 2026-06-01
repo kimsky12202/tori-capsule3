@@ -494,8 +494,8 @@ class MapPageState extends State<MapPage> with TickerProviderStateMixin {
       markers.add(
         Marker(
           point: point,
-          width: 80,
-          height: 100,
+          width: 100,
+          height: 120,
           alignment: Alignment.bottomCenter,
           child: GestureDetector(
             onTap: () => _openSpotSheet(spot),
@@ -513,8 +513,8 @@ class MapPageState extends State<MapPage> with TickerProviderStateMixin {
         markers.add(
           Marker(
             point: point,
-            width: 80,
-            height: 100,
+            width: 100,
+            height: 120,
             alignment: Alignment.bottomCenter,
             child: GestureDetector(
               onTap: () => _openCapsuleSheet(capsule),
@@ -670,11 +670,9 @@ class _SpotMarker extends StatelessWidget {
       final String cat = (spot.category ?? '').toLowerCase().trim();
       fileName = _categoryImage[cat] ?? 'visited_default.png';
     }
-    return Image.asset(
-      'assets/images/markers/$fileName',
-      fit: BoxFit.contain,
-      filterQuality: FilterQuality.medium,
-      errorBuilder: (_, __, ___) => _MarkerFallback(
+    return _ScaledPinImage(
+      asset: 'assets/images/markers/$fileName',
+      fallback: _MarkerFallback(
         label: spot.visited ? '!' : '?',
         color: spot.visited
             ? const Color(0xFFA14040)
@@ -697,15 +695,43 @@ class _CapsuleMarker extends StatelessWidget {
   Widget build(BuildContext context) {
     final String designKey = _knownDesigns.contains(design) ? design : 'base';
     final String suffix = locked ? '_locked' : '';
-    return Image.asset(
-      'assets/images/markers/capsule_$designKey$suffix.png',
-      fit: BoxFit.contain,
-      filterQuality: FilterQuality.medium,
-      errorBuilder: (_, __, ___) => _MarkerFallback(
+    return _ScaledPinImage(
+      asset: 'assets/images/markers/capsule_$designKey$suffix.png',
+      fallback: _MarkerFallback(
         label: locked ? '🔒' : '📦',
         color: locked
             ? const Color(0xFFA14040)
             : const Color(0xFF1FAA8C),
+      ),
+    );
+  }
+}
+
+/// PNG 가운데에 핀이 작게 박혀있는 경우 여백을 크롭해서 핀만 크게 보이도록.
+/// scale 값은 핀이 캔버스의 ~25% 영역에 그려져있다고 가정한 값.
+class _ScaledPinImage extends StatelessWidget {
+  const _ScaledPinImage({required this.asset, required this.fallback});
+
+  final String asset;
+  final Widget fallback;
+
+  static const double _scale = 4.5;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRect(
+      child: OverflowBox(
+        maxWidth: double.infinity,
+        maxHeight: double.infinity,
+        child: Transform.scale(
+          scale: _scale,
+          child: Image.asset(
+            asset,
+            fit: BoxFit.contain,
+            filterQuality: FilterQuality.medium,
+            errorBuilder: (_, __, ___) => fallback,
+          ),
+        ),
       ),
     );
   }
