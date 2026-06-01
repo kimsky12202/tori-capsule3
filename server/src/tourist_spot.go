@@ -188,6 +188,46 @@ func findOrInitSpotVisit(app *pocketbase.PocketBase, userID, spotID string) (*co
 	return record, true, nil
 }
 
+// discoverNearbyTouristSpotsForCapsule 는 캡슐 묻은 위치 근처의 관광지를 자동으로
+// 방문 처리한다. 캡슐 생성 직후에 호출됨. 이미 방문한 관광지는 건드리지 않음.
+// 실패는 로그만 남기고 캡슐 생성 흐름을 막지 않음 (best-effort).
+func discoverNearbyTouristSpotsForCapsule(
+	app *pocketbase.PocketBase,
+	userID, capsuleID string,
+	lat, lng float64,
+) {
+	spots, err := app.FindAllRecords("tourist_spots", dbx.HashExp{"is_active": true})
+	if err != nil {
+		return
+	}
+	for _, spot := range spots {
+		point := spot.GetGeoPoint("location")
+		dist := haversineMeters(lat, lng, point.Lat, point.Lon)
+		if dist > float64(spotRadius(spot)) {
+			continue
+		}
+
+		visit, isNew, err := findOrInitSpotVisit(app, userID, spot.Id)
+		if err != nil {
+			continue
+		}
+		// 이미 다른 경로로 방문한 곳은 source/visited_at 을 덮어쓰지 않는다.
+		if !isNew {
+			continue
+		}
+
+		visit.Set("source", "capsule")
+		visit.Set("capsule", capsuleID)
+		visit.Set("visited_at", time.Now().UTC())
+		visit.Set("latitude", lat)
+		visit.Set("longitude", lng)
+		if err := app.Save(visit); err != nil {
+			continue
+		}
+		trackPlaceVisitedChallenge(app, userID)
+	}
+}
+
 func spotRadius(s *core.Record) int {
 	r := s.GetInt("radius_m")
 	if r <= 0 {

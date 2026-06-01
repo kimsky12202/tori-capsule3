@@ -118,6 +118,13 @@ func createCapsule(app *pocketbase.PocketBase) func(*core.RequestEvent) error {
 		}
 		trackPhotoUploadedChallenge(app, re.Auth.Id, photoUploadCount)
 
+		// 캡슐 위치 근처의 관광지를 자동 발견 처리 (best-effort).
+		// 그룹 캡슐이면 모든 멤버에게도 발견 처리.
+		discoverNearbyTouristSpotsForCapsule(app, re.Auth.Id, record.Id, lat, lng)
+		for _, memberID := range memberIDs {
+			discoverNearbyTouristSpotsForCapsule(app, memberID, record.Id, lat, lng)
+		}
+
 		return re.JSON(http.StatusCreated, map[string]any{
 			"capsule": map[string]any{
 				"id":               record.Id,
