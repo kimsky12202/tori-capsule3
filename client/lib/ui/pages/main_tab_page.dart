@@ -3,6 +3,7 @@ import 'package:geolocator/geolocator.dart';
 
 import '../services/capsule_api.dart';
 import '../services/capsule_notification_service.dart';
+import '../services/config_api.dart';
 import '../services/settings_preferences.dart';
 import 'capsule/capsule_content_sheet.dart';
 import 'challenge_tab_page.dart';
@@ -54,6 +55,9 @@ class _MainTabPageState extends State<MainTabPage>
       initialIndex: _selectedIndex,
     );
     _controller.addListener(_syncSelectedIndex);
+    // 로그인 직후 한 번 Mapbox 토큰을 서버에서 받아온다. 실패해도 앱 흐름은
+    // 영향 없음 (MapConfig.hasValidToken 이 false 로 떨어져서 안내 문구 표시).
+    ConfigApi().loadMapboxToken();
   }
 
   @override

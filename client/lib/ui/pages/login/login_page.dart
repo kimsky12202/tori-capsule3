@@ -5,6 +5,7 @@ import '../../design/layer/form_layer.dart';
 import '../../design/layer/hanok_layer.dart';
 import '../../design/tori_theme.dart';
 import '../../services/auth_api.dart';
+import '../../services/config_api.dart';
 import '../../services/push_notification_service.dart';
 import '../main_tab_page.dart';
 import 'register_page.dart';
@@ -66,6 +67,11 @@ class _LoginPageState extends State<LoginPage>
 
     if (sessionRestored) {
       await PushNotificationService.instance.syncTokenWithServer();
+      // 지도 진입 전에 Mapbox 토큰을 미리 받아온다 (최대 2초 대기, 실패해도 진행).
+      await ConfigApi().loadMapboxToken().timeout(
+        const Duration(seconds: 2),
+        onTimeout: () {},
+      );
 
       // 이미 로그인 → 스플래시만 잠깐 보여주고 메인 탭으로
       await Future<void>.delayed(_splashHoldDuration);
@@ -126,6 +132,10 @@ class _LoginPageState extends State<LoginPage>
       );
       await AuthApi.persistLoginResult(loginResult);
       await PushNotificationService.instance.syncTokenWithServer();
+      await ConfigApi().loadMapboxToken().timeout(
+        const Duration(seconds: 2),
+        onTimeout: () {},
+      );
 
       if (!mounted) {
         return;
@@ -237,6 +247,10 @@ class _LoginPageState extends State<LoginPage>
       );
       await AuthApi.persistLoginResult(loginResult);
       await PushNotificationService.instance.syncTokenWithServer();
+      await ConfigApi().loadMapboxToken().timeout(
+        const Duration(seconds: 2),
+        onTimeout: () {},
+      );
 
       if (!mounted) {
         return;

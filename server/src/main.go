@@ -42,6 +42,7 @@ func main() {
 	registerGroupCapsulePushFeatures(app)
 	registerFriendshipRoutes(app)
 	registerTouristSpotRoutes(app) //관광지
+	registerConfigRoutes(app)      //런타임 설정 (Mapbox 토큰 등)
 
 	// If no args, run serve by default
 	if len(os.Args) == 1 {

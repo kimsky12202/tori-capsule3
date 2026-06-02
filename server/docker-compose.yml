@@ -8,6 +8,8 @@ services:
       - "8090:8090"
     volumes:
       - pocketbase_data:/pb/pb_data
+    env_file:
+      - .env
     restart: unless-stopped
 
 volumes:
