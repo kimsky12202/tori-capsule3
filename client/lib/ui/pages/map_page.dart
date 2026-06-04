@@ -576,19 +576,7 @@ class MapPageState extends State<MapPage> with TickerProviderStateMixin {
           final capsule = cluster.items.first.capsule!;
           markers.add(_buildCapsuleMarker(capsule, cluster.items.first.point));
         } else {
-          markers.add(
-            Marker(
-              point: cluster.center,
-              width: 72,
-              height: 72,
-              alignment: Alignment.center,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => _openClusterSheet(cluster),
-                child: _ClusterMarker(count: cluster.items.length),
-              ),
-            ),
-          );
+          markers.add(_buildClusterMarker(cluster));
         }
       }
     }
@@ -661,6 +649,45 @@ class MapPageState extends State<MapPage> with TickerProviderStateMixin {
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: () => _openCapsuleSheet(capsule),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 캡슐 클러스터 마커: 대표 캡슐 핀 + 우상단 갯수 배지.
+  /// (단일 캡슐 마커와 동일한 사이즈/모양을 쓰되 옆에 숫자만 작게 붙임)
+  Marker _buildClusterMarker(_MarkerCluster cluster) {
+    final CapsuleMapMarker representative = cluster.items.first.capsule!;
+    return Marker(
+      point: cluster.center,
+      width: 180,
+      height: 220,
+      alignment: Alignment.center,
+      child: Stack(
+        children: <Widget>[
+          Positioned.fill(
+            child: IgnorePointer(
+              child: _CapsuleMarker(
+                locked: representative.isLocked,
+                design: representative.design,
+              ),
+            ),
+          ),
+          Positioned(
+            left: 108,
+            top: 8,
+            child: _ClusterCountBadge(count: cluster.items.length),
+          ),
+          Positioned(
+            left: 55,
+            top: 20,
+            width: 70,
+            height: 100,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => _openClusterSheet(cluster),
             ),
           ),
         ],
@@ -941,37 +968,40 @@ class _MarkerCluster {
   LatLng center;
 }
 
-class _ClusterMarker extends StatelessWidget {
-  const _ClusterMarker({required this.count});
+/// 클러스터링된 캡슐 핀 옆에 붙는 작은 갯수 배지.
+class _ClusterCountBadge extends StatelessWidget {
+  const _ClusterCountBadge({required this.count});
 
   final int count;
 
-  static const Color _brown = MapPage._brown;
+  // 강조용 빨간 갈색. 핀의 갈색 톤과 충돌하지 않으면서 시선을 끔.
+  static const Color _bgColor = Color(0xFFA14040);
 
   @override
   Widget build(BuildContext context) {
-    final double size = count >= 100 ? 64 : (count >= 10 ? 58 : 52);
-    final double fontSize = count >= 100 ? 16 : (count >= 10 ? 18 : 20);
+    final String label = count >= 100 ? '99+' : '$count';
+    final double size = count >= 100 ? 36 : (count >= 10 ? 32 : 28);
+    final double fontSize = count >= 100 ? 11 : (count >= 10 ? 13 : 14);
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _bgColor,
         shape: BoxShape.circle,
-        border: Border.all(color: _brown, width: 3),
+        border: Border.all(color: Colors.white, width: 2),
         boxShadow: const <BoxShadow>[
           BoxShadow(
-            color: Color(0x33000000),
-            blurRadius: 6,
+            color: Color(0x66000000),
+            blurRadius: 4,
             offset: Offset(0, 2),
           ),
         ],
       ),
       alignment: Alignment.center,
       child: Text(
-        '$count',
+        label,
         style: TextStyle(
-          color: _brown,
+          color: Colors.white,
           fontSize: fontSize,
           fontWeight: FontWeight.w900,
           height: 1.0,
