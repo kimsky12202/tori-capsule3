@@ -291,6 +291,7 @@ class MapPageState extends State<MapPage> with TickerProviderStateMixin {
             builder: (_) => CapsuleDetailPage(
               capsule: CapsuleListItem(
                 id: capsule.id,
+                name: '',
                 status: capsule.status,
                 design: capsule.design,
                 emotion: capsule.emotion ?? '',

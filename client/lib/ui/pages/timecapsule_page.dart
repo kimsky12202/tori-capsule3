@@ -31,6 +31,13 @@ class TimecapsulePageState extends State<TimecapsulePage>
     await _game.onCapsuleRegistered(design: design, capsuleId: capsuleId);
   }
 
+  /// 다른 탭에서 캡슐을 등록한 뒤 캡슐 탭으로 진입했을 때 호출되는 훅.
+  /// main_tab_page 에서 _capsulePageKey.currentState?.onTabSelected() 로 부른다.
+  /// 현재는 playRegisterAnimation 으로 직접 트리거하므로 별도 처리는 없다.
+  Future<void> onTabSelected() async {
+    await _game.loaded;
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
