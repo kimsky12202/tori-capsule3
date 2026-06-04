@@ -13,9 +13,10 @@ import (
 )
 
 const (
-	groupCapsuleMemberStatusJoined = "joined"
-	groupCapsuleMemberRoleOwner    = "owner"
-	groupCapsuleMemberRoleMember   = "member"
+	groupCapsuleMemberStatusJoined  = "joined"
+	groupCapsuleMemberStatusPending = "pending"
+	groupCapsuleMemberRoleOwner     = "owner"
+	groupCapsuleMemberRoleMember    = "member"
 )
 
 func parseRequestedGroupMemberIDs(re *core.RequestEvent) []string {
@@ -89,14 +90,17 @@ func createGroupCapsuleMembers(
 		record := core.NewRecord(col)
 		record.Set("capsule", capsuleID)
 		record.Set("user", participantID)
-		record.Set("status", groupCapsuleMemberStatusJoined)
-		record.Set("accepted_at", now)
 
 		if participantID == ownerID {
+			// 본인(owner)은 즉시 joined 로 시작
 			record.Set("role", groupCapsuleMemberRoleOwner)
+			record.Set("status", groupCapsuleMemberStatusJoined)
+			record.Set("accepted_at", now)
 		} else {
+			// 초대받은 친구는 pending 으로 시작. 보관함에서 수락해야 joined 로 전환.
 			record.Set("role", groupCapsuleMemberRoleMember)
 			record.Set("invited_by", ownerID)
+			record.Set("status", groupCapsuleMemberStatusPending)
 		}
 
 		if err := app.Save(record); err != nil {
@@ -105,6 +109,67 @@ func createGroupCapsuleMembers(
 	}
 
 	return nil
+}
+
+// findPendingGroupCapsulesForUser: 해당 사용자가 아직 수락하지 않은 그룹 캡슐 초대 목록.
+func findPendingGroupCapsulesForUser(app *pocketbase.PocketBase, userID string) ([]*core.Record, error) {
+	memberRecords, err := app.FindRecordsByFilter(
+		"capsule_members",
+		"user = {:user} && status = {:status}",
+		"",
+		0,
+		0,
+		dbx.Params{
+			"user":   userID,
+			"status": groupCapsuleMemberStatusPending,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	seen := make(map[string]struct{}, len(memberRecords))
+	records := make([]*core.Record, 0, len(memberRecords))
+
+	for _, memberRecord := range memberRecords {
+		capsuleID := strings.TrimSpace(memberRecord.GetString("capsule"))
+		if capsuleID == "" {
+			continue
+		}
+		if _, exists := seen[capsuleID]; exists {
+			continue
+		}
+		seen[capsuleID] = struct{}{}
+
+		capsuleRecord, err := app.FindRecordById("capsules", capsuleID)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				continue
+			}
+			return nil, err
+		}
+		records = append(records, capsuleRecord)
+	}
+
+	return records, nil
+}
+
+// acceptGroupCapsuleInvite: 초대받은 그룹 캡슐을 수락 처리. pending → joined.
+func acceptGroupCapsuleInvite(app *pocketbase.PocketBase, capsuleID, userID string) error {
+	member, err := app.FindFirstRecordByFilter(
+		"capsule_members",
+		"capsule = {:capsule} && user = {:user}",
+		dbx.Params{"capsule": capsuleID, "user": userID},
+	)
+	if err != nil {
+		return err
+	}
+	if member.GetString("status") == groupCapsuleMemberStatusJoined {
+		return nil
+	}
+	member.Set("status", groupCapsuleMemberStatusJoined)
+	member.Set("accepted_at", time.Now().UTC())
+	return app.Save(member)
 }
 
 func canAccessCapsule(app *pocketbase.PocketBase, userID string, capsule *core.Record) (bool, error) {

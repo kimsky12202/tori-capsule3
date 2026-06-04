@@ -552,40 +552,44 @@ class MapPageState extends State<MapPage> with TickerProviderStateMixin {
 
   List<Marker> _buildMarkers() {
     final markers = <Marker>[];
-    final items = <_MapItem>[];
 
+    // 관광지는 클러스터링하지 않고 항상 개별 마커로 표시한다.
     for (final spot in _visibleSpots) {
       final point = _safeLatLng(spot.latitude, spot.longitude);
       if (point == null) continue;
-      items.add(_MapItem.spot(spot, point));
+      markers.add(_buildSpotMarker(spot, point));
     }
 
+    // 캡슐만 가까운 것끼리 클러스터링.
     if (_showCapsules) {
+      final capsuleItems = <_MapItem>[];
       for (final capsule in _capsules) {
         if (!capsule.isBuried) continue;
         final point = _safeLatLng(capsule.latitude, capsule.longitude);
         if (point == null) continue;
-        items.add(_MapItem.capsule(capsule, point));
+        capsuleItems.add(_MapItem.capsule(capsule, point));
       }
-    }
 
-    final clusters = _buildClusters(items, _currentZoom);
-    for (final cluster in clusters) {
-      if (cluster.items.length == 1) {
-        markers.add(_buildSingleMarker(cluster.items.first));
-      } else {
-        markers.add(
-          Marker(
-            point: cluster.center,
-            width: 72,
-            height: 72,
-            alignment: Alignment.center,
-            child: GestureDetector(
-              onTap: () => _openClusterSheet(cluster),
-              child: _ClusterMarker(count: cluster.items.length),
+      final clusters = _buildClusters(capsuleItems, _currentZoom);
+      for (final cluster in clusters) {
+        if (cluster.items.length == 1) {
+          final capsule = cluster.items.first.capsule!;
+          markers.add(_buildCapsuleMarker(capsule, cluster.items.first.point));
+        } else {
+          markers.add(
+            Marker(
+              point: cluster.center,
+              width: 72,
+              height: 72,
+              alignment: Alignment.center,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => _openClusterSheet(cluster),
+                child: _ClusterMarker(count: cluster.items.length),
+              ),
             ),
-          ),
-        );
+          );
+        }
       }
     }
 
@@ -603,32 +607,63 @@ class MapPageState extends State<MapPage> with TickerProviderStateMixin {
     return markers;
   }
 
-  Marker _buildSingleMarker(_MapItem item) {
-    if (item.spot != null) {
-      final spot = item.spot!;
-      return Marker(
-        point: item.point,
-        width: 180,
-        height: 220,
-        alignment: Alignment.center,
-        child: GestureDetector(
-          onTap: () => _openSpotSheet(spot),
-          child: _SpotMarker(spot: spot),
-        ),
-      );
-    }
-    final capsule = item.capsule!;
+  /// 핀 그림은 180x220 이지만 실제 클릭 인식은 핀 모양(상단 70x100)만 받도록 분리.
+  /// (마커 아래 빈 픽셀까지 탭 판정되어 잘못된 캡슐/관광지가 눌리는 문제 방지)
+  /// _ScaledPinImage 가 4배 확대 + ClipRect 로 핀을 박스 중앙에 그리지만 실제로
+  /// 보이는 핀 본체는 박스의 위쪽 절반쯤이므로 hit area 를 위로 올려 정렬.
+  Marker _buildSpotMarker(TouristSpot spot, LatLng point) {
     return Marker(
-      point: item.point,
+      point: point,
       width: 180,
       height: 220,
       alignment: Alignment.center,
-      child: GestureDetector(
-        onTap: () => _openCapsuleSheet(capsule),
-        child: _CapsuleMarker(
-          locked: capsule.isLocked,
-          design: capsule.design,
-        ),
+      child: Stack(
+        children: <Widget>[
+          Positioned.fill(
+            child: IgnorePointer(child: _SpotMarker(spot: spot)),
+          ),
+          Positioned(
+            left: 55,
+            top: 20,
+            width: 70,
+            height: 100,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => _openSpotSheet(spot),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Marker _buildCapsuleMarker(CapsuleMapMarker capsule, LatLng point) {
+    return Marker(
+      point: point,
+      width: 180,
+      height: 220,
+      alignment: Alignment.center,
+      child: Stack(
+        children: <Widget>[
+          Positioned.fill(
+            child: IgnorePointer(
+              child: _CapsuleMarker(
+                locked: capsule.isLocked,
+                design: capsule.design,
+              ),
+            ),
+          ),
+          Positioned(
+            left: 55,
+            top: 20,
+            width: 70,
+            height: 100,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => _openCapsuleSheet(capsule),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -668,7 +703,7 @@ class MapPageState extends State<MapPage> with TickerProviderStateMixin {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
                   child: Text(
-                    '이 위치의 항목 (${cluster.items.length})',
+                    '이 위치의 캡슐 (${cluster.items.length})',
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w900,

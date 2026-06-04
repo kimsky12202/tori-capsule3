@@ -35,6 +35,8 @@ const (
 	capsuleOpenPushTitle          = "Capsule is open"
 	capsuleOpenPushBodyGroup      = "A group capsule can now be opened."
 	capsuleOpenPushBodyIndividual = "Your capsule can now be opened."
+	groupCapsuleInvitePayloadType = "group_capsule_invite"
+	groupCapsuleInvitePushTitle   = "그룹 캡슐 초대"
 	pushTokenPlatformAndroid      = "android"
 	pushTokenPlatformIOS          = "ios"
 	pushTokenPlatformWeb          = "web"
@@ -724,4 +726,86 @@ func buildFCMSendError(statusCode int, body []byte) error {
 	}
 
 	return sendErr
+}
+
+// sendGroupCapsuleInvitePush: 그룹 캡슐 생성 직후 멤버(친구) 각각에게 초대 알림을 보낸다.
+// 백그라운드 고루틴으로 실행해 HTTP 응답 지연을 막는다. 실패해도 캡슐 생성 자체는 성공.
+func sendGroupCapsuleInvitePush(
+	app *pocketbase.PocketBase,
+	capsuleID string,
+	ownerID string,
+	memberIDs []string,
+) {
+	if len(memberIDs) == 0 {
+		return
+	}
+
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		pusher, err := newFCMPushService(ctx)
+		if err != nil {
+			if !fcmConfigWarningLogged.Swap(true) {
+				app.Logger().Warn(
+					"group capsule invite push is skipped because FCM is not configured",
+					"error", err,
+				)
+			}
+			return
+		}
+		fcmConfigWarningLogged.Store(false)
+
+		ownerName := "친구"
+		if owner, err := app.FindRecordById("users", ownerID); err == nil {
+			candidate := strings.TrimSpace(owner.GetString("username"))
+			if candidate == "" {
+				candidate = strings.TrimSpace(owner.GetString("name"))
+			}
+			if candidate != "" {
+				ownerName = candidate
+			}
+		}
+
+		body := fmt.Sprintf(
+			"%s님이 그룹 캡슐에 초대했어요. 보관함에서 확인해보세요.",
+			ownerName,
+		)
+		payloadData := map[string]string{
+			"type":       groupCapsuleInvitePayloadType,
+			"capsule_id": capsuleID,
+		}
+
+		for _, userID := range memberIDs {
+			tokens, err := findActivePushTokensByUser(app, userID)
+			if err != nil {
+				app.Logger().Warn(
+					"failed to load push tokens for group capsule invite",
+					"userId", userID,
+					"error", err,
+				)
+				continue
+			}
+			for _, tokenRecord := range tokens {
+				token := strings.TrimSpace(tokenRecord.GetString("fcm_token"))
+				if token == "" {
+					continue
+				}
+				if err := pusher.sendNotification(ctx, token, groupCapsuleInvitePushTitle, body, payloadData); err != nil {
+					var sendErr *fcmSendError
+					if errors.As(err, &sendErr) && sendErr.isInvalidTokenError() {
+						tokenRecord.Set("is_active", false)
+						tokenRecord.Set("last_seen_at", time.Now().UTC())
+						_ = app.Save(tokenRecord)
+						continue
+					}
+					app.Logger().Warn(
+						"failed to send group capsule invite push",
+						"userId", userID,
+						"error", err,
+					)
+				}
+			}
+		}
+	}()
 }

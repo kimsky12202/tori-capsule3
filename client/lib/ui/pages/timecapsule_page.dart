@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import '../../game/timecapsule_game.dart';
+import '../services/capsule_event_bus.dart';
 import 'capsule_list.dart';
 
 class TimecapsulePage extends StatefulWidget {
@@ -13,6 +16,7 @@ class TimecapsulePage extends StatefulWidget {
 class TimecapsulePageState extends State<TimecapsulePage>
     with AutomaticKeepAliveClientMixin {
   late final TimecapsuleGame _game;
+  StreamSubscription<String>? _deleteSub;
 
   @override
   bool get wantKeepAlive => true;
@@ -21,6 +25,16 @@ class TimecapsulePageState extends State<TimecapsulePage>
   void initState() {
     super.initState();
     _game = TimecapsuleGame();
+    // 다른 화면에서 캡슐을 삭제하면 진열장(책장)에서도 즉시 사라지도록.
+    _deleteSub = CapsuleEventBus.instance.onDeleted.listen((String capsuleId) {
+      _game.removeCapsuleFromShelf(capsuleId);
+    });
+  }
+
+  @override
+  void dispose() {
+    _deleteSub?.cancel();
+    super.dispose();
   }
 
   Future<void> playRegisterAnimation({
@@ -45,18 +59,6 @@ class TimecapsulePageState extends State<TimecapsulePage>
       body: Stack(
         children: [
           GameWidget(game: _game),
-          // 테스트용 버튼 (나중에 제거)
-          Positioned(
-            bottom: 30,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: ElevatedButton(
-                onPressed: () => _game.onCapsuleRegistered(),
-                child: const Text('캡슐 보관하기'),
-              ),
-            ),
-          ),
           Positioned(
             right: 24,
             bottom: 24,

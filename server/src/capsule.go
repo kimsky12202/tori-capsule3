@@ -19,6 +19,7 @@ func registerCapsuleRoutes(app *pocketbase.PocketBase) {
 			e.Router.GET("/capsules", listCapsules(app))
 			e.Router.GET("/capsules/{id}", getCapsule(app))
 			e.Router.PATCH("/capsules/{id}/bury", buryCapsule(app))
+			e.Router.POST("/capsules/{id}/accept", acceptCapsuleInvite(app))
 			e.Router.DELETE("/capsules/{id}", deleteCapsule(app))
 			return e.Next()
 		},
@@ -107,6 +108,10 @@ func createCapsule(app *pocketbase.PocketBase) func(*core.RequestEvent) error {
 			_ = app.Delete(record)
 			return re.JSON(http.StatusInternalServerError, map[string]string{"message": err.Error()})
 		}
+
+		// 그룹 캡슐일 때 초대받은 친구들에게 즉시 푸시 알림.
+		sendGroupCapsuleInvitePush(app, record.Id, re.Auth.Id, memberIDs)
+
 		if err := createCapsuleOpenSetting(app, record.Id, openConfig); err != nil {
 			_ = app.Delete(record)
 			return re.JSON(http.StatusInternalServerError, map[string]string{"message": err.Error()})
@@ -170,9 +175,20 @@ func listCapsules(app *pocketbase.PocketBase) func(*core.RequestEvent) error {
 			return re.JSON(http.StatusInternalServerError, map[string]string{"message": err.Error()})
 		}
 
-		uniqueRecords := make([]*core.Record, 0, len(records)+len(groupRecords))
-		seen := make(map[string]struct{}, len(records)+len(groupRecords))
-		for _, r := range append(records, groupRecords...) {
+		pendingRecords, err := findPendingGroupCapsulesForUser(app, re.Auth.Id)
+		if err != nil {
+			return re.JSON(http.StatusInternalServerError, map[string]string{"message": err.Error()})
+		}
+		pendingIDs := make(map[string]struct{}, len(pendingRecords))
+		for _, r := range pendingRecords {
+			pendingIDs[r.Id] = struct{}{}
+		}
+
+		uniqueRecords := make([]*core.Record, 0, len(records)+len(groupRecords)+len(pendingRecords))
+		seen := make(map[string]struct{}, len(records)+len(groupRecords)+len(pendingRecords))
+		combined := append(records, groupRecords...)
+		combined = append(combined, pendingRecords...)
+		for _, r := range combined {
 			if _, exists := seen[r.Id]; exists {
 				continue
 			}
@@ -190,6 +206,15 @@ func listCapsules(app *pocketbase.PocketBase) func(*core.RequestEvent) error {
 			if err != nil {
 				return re.JSON(http.StatusInternalServerError, map[string]string{"message": err.Error()})
 			}
+
+			// 클라이언트에서 "초대됨/참여중/내가만듦" 구분하기 위한 필드.
+			memberStatus := groupCapsuleMemberStatusJoined
+			if r.GetString("users") == re.Auth.Id {
+				memberStatus = groupCapsuleMemberRoleOwner
+			} else if _, isPending := pendingIDs[r.Id]; isPending {
+				memberStatus = groupCapsuleMemberStatusPending
+			}
+
 			result = append(result, map[string]any{
 				"id":               r.Id,
 				"status":           r.GetString("status"),
@@ -199,11 +224,35 @@ func listCapsules(app *pocketbase.PocketBase) func(*core.RequestEvent) error {
 				"created":          r.GetString("created"),
 				"buried_at":        r.Get("buried_at"),
 				"is_group_capsule": isGroup,
+				"member_status":    memberStatus,
 				"open":             openMeta,
 			})
 		}
 
 		return re.JSON(http.StatusOK, map[string]any{"capsules": result})
+	}
+}
+
+func acceptCapsuleInvite(app *pocketbase.PocketBase) func(*core.RequestEvent) error {
+	return func(re *core.RequestEvent) error {
+		if re.Auth == nil {
+			return re.JSON(http.StatusUnauthorized, map[string]string{"message": "unauthorized"})
+		}
+
+		capsuleID := re.Request.PathValue("id")
+		if capsuleID == "" {
+			return re.JSON(http.StatusBadRequest, map[string]string{"message": "capsule id required"})
+		}
+
+		if _, err := app.FindRecordById("capsules", capsuleID); err != nil {
+			return re.JSON(http.StatusNotFound, map[string]string{"message": "capsule not found"})
+		}
+
+		if err := acceptGroupCapsuleInvite(app, capsuleID, re.Auth.Id); err != nil {
+			return re.JSON(http.StatusBadRequest, map[string]string{"message": err.Error()})
+		}
+
+		return re.JSON(http.StatusOK, map[string]any{"accepted": true})
 	}
 }
 

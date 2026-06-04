@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import '../pages/capsule/capsule_content_sheet.dart';
 import 'auth_api.dart';
+import 'capsule_event_bus.dart';
 
 class CapsuleApiException implements Exception {
   const CapsuleApiException(this.message);
@@ -10,6 +11,16 @@ class CapsuleApiException implements Exception {
 
   @override
   String toString() => message;
+}
+
+/// 그룹 캡슐에서 본인의 멤버십 상태.
+/// owner = 본인이 만든 캡슐
+/// joined = 초대를 수락해서 참여 중
+/// pending = 초대받았지만 아직 수락 안 함 (보관함에서 "추가" 가능)
+class CapsuleMemberStatus {
+  static const String owner = 'owner';
+  static const String joined = 'joined';
+  static const String pending = 'pending';
 }
 
 class CapsuleListItem {
@@ -25,6 +36,7 @@ class CapsuleListItem {
     required this.openAt,
     required this.canOpenNow,
     this.name = '',
+    this.memberStatus = CapsuleMemberStatus.joined,
   });
 
   final String id;
@@ -38,8 +50,10 @@ class CapsuleListItem {
   final String openOption;
   final String openAt;
   final bool canOpenNow;
+  final String memberStatus;
 
   bool get isBuried => status == 'buried';
+  bool get isPendingInvite => memberStatus == CapsuleMemberStatus.pending;
 }
 
 class CapsuleDetail {
@@ -220,9 +234,31 @@ class CapsuleApi {
         '$baseUrl/capsules/$capsuleId',
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
+      // 캡슐 탭 진열장 등에서도 즉시 반영되도록 이벤트 발행.
+      CapsuleEventBus.instance.notifyDeleted(capsuleId);
       return true;
     } catch (error) {
       debugPrint('deleteCapsule failed: $error');
+      return false;
+    }
+  }
+
+  /// 초대받은 그룹 캡슐을 수락. pending → joined.
+  Future<bool> acceptCapsuleInvite({required String capsuleId}) async {
+    final token = AuthApi.accessToken;
+    if (token == null || token.isEmpty) {
+      debugPrint('acceptCapsuleInvite: not signed in');
+      return false;
+    }
+
+    try {
+      await _dio.post(
+        '$baseUrl/capsules/$capsuleId/accept',
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+      return true;
+    } catch (error) {
+      debugPrint('acceptCapsuleInvite failed: $error');
       return false;
     }
   }
@@ -286,6 +322,10 @@ class CapsuleApi {
 
     final json = Map<String, dynamic>.from(raw);
     final open = _asMap(json['open']);
+    final String memberStatus = (json['member_status'] ?? '')
+        .toString()
+        .trim()
+        .toLowerCase();
     return CapsuleListItem(
       id: (json['id'] ?? '').toString(),
       status: (json['status'] ?? '').toString(),
@@ -297,6 +337,9 @@ class CapsuleApi {
       openOption: (open['open_option'] ?? '').toString(),
       openAt: (open['open_at'] ?? '').toString(),
       canOpenNow: _toBool(open['can_open_now']),
+      memberStatus: memberStatus.isEmpty
+          ? CapsuleMemberStatus.joined
+          : memberStatus,
     );
   }
 

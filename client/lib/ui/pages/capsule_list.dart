@@ -212,6 +212,12 @@ class _CapsuleListPageState extends State<CapsuleListPage> {
   }
 
   Future<void> _openCapsule(CapsuleListItem capsule) async {
+    // 초대받은 그룹 캡슐은 먼저 수락해야 내용을 볼 수 있다.
+    if (capsule.isPendingInvite) {
+      await _acceptInvite(capsule);
+      return;
+    }
+
     if (!capsule.canOpenNow) {
       ScaffoldMessenger.of(
         context,
@@ -227,6 +233,23 @@ class _CapsuleListPageState extends State<CapsuleListPage> {
     if (deleted == true && mounted) {
       await _refreshCapsules();
     }
+  }
+
+  Future<void> _acceptInvite(CapsuleListItem capsule) async {
+    final bool ok = await _capsuleApi.acceptCapsuleInvite(
+      capsuleId: capsule.id,
+    );
+    if (!mounted) return;
+    if (!ok) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('초대를 수락하지 못했어요.')));
+      return;
+    }
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('그룹 캡슐을 추가했어요.')));
+    await _refreshCapsules();
   }
 
   List<CapsuleListItem> _filteredCapsules(List<CapsuleListItem> capsules) {
@@ -316,10 +339,14 @@ class _CapsuleListCard extends StatelessWidget {
   static const Color _mutedText = _CapsuleListPageState._mutedText;
   static const Color _accentColor = _CapsuleListPageState._accentColor;
   static const Color _groupColor = _CapsuleListPageState._groupColor;
+  static const Color _pendingColor = Color(0xFFC07B3D);
 
   @override
   Widget build(BuildContext context) {
-    final color = capsule.isGroupCapsule ? _groupColor : _accentColor;
+    final bool isPending = capsule.isPendingInvite;
+    final color = isPending
+        ? _pendingColor
+        : (capsule.isGroupCapsule ? _groupColor : _accentColor);
 
     return Material(
       color: const Color(0xFFFFFCF6),
@@ -342,9 +369,11 @@ class _CapsuleListCard extends StatelessWidget {
                 height: 50,
                 color: color.withValues(alpha: 0.2),
                 child: Icon(
-                  capsule.isGroupCapsule
-                      ? Icons.diversity_3_outlined
-                      : Icons.inventory_2_outlined,
+                  isPending
+                      ? Icons.mark_email_unread_outlined
+                      : (capsule.isGroupCapsule
+                            ? Icons.diversity_3_outlined
+                            : Icons.inventory_2_outlined),
                   color: color,
                   size: 30,
                 ),
@@ -358,7 +387,11 @@ class _CapsuleListCard extends StatelessWidget {
                       children: <Widget>[
                         Expanded(
                           child: Text(
-                            capsule.isGroupCapsule ? '그룹 캡슐' : '일반 캡슐',
+                            isPending
+                                ? '그룹 캡슐 초대'
+                                : (capsule.isGroupCapsule
+                                      ? '그룹 캡슐'
+                                      : '일반 캡슐'),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
@@ -368,13 +401,16 @@ class _CapsuleListCard extends StatelessWidget {
                             ),
                           ),
                         ),
-                        _CapsuleStatusBadge(capsule: capsule),
+                        if (isPending)
+                          const _PendingBadge()
+                        else
+                          _CapsuleStatusBadge(capsule: capsule),
                       ],
                     ),
                     const SizedBox(height: 8),
                     Text(
                       _capsuleDescription(capsule),
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: _mutedText,
@@ -383,16 +419,19 @@ class _CapsuleListCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 6,
-                      children: <Widget>[
-                        _MiniMeta(label: _formatDate(capsule.created)),
-                        _MiniMeta(label: _openLabel(capsule)),
-                        if (capsule.emotion.trim().isNotEmpty)
-                          _MiniMeta(label: capsule.emotion),
-                      ],
-                    ),
+                    if (isPending)
+                      _PendingAcceptButton(onTap: onTap)
+                    else
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        children: <Widget>[
+                          _MiniMeta(label: _formatDate(capsule.created)),
+                          _MiniMeta(label: _openLabel(capsule)),
+                          if (capsule.emotion.trim().isNotEmpty)
+                            _MiniMeta(label: capsule.emotion),
+                        ],
+                      ),
                   ],
                 ),
               ),
@@ -404,6 +443,9 @@ class _CapsuleListCard extends StatelessWidget {
   }
 
   static String _capsuleDescription(CapsuleListItem capsule) {
+    if (capsule.isPendingInvite) {
+      return '친구가 함께 묻을 캡슐에 초대했어요. "추가하기" 를 눌러 보관함에 담아보세요.';
+    }
     if (capsule.isGroupCapsule) {
       return capsule.canOpenNow ? '함께 만든 추억을 확인할 수 있어요.' : '친구들과 함께 묻은 캡슐이에요.';
     }
@@ -496,6 +538,70 @@ class _EmptyCapsules extends StatelessWidget {
             fontSize: 14,
             fontWeight: FontWeight.w900,
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PendingBadge extends StatelessWidget {
+  const _PendingBadge();
+
+  static const Color _color = _CapsuleListCard._pendingColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      color: _color.withValues(alpha: 0.16),
+      child: const Text(
+        '초대됨',
+        style: TextStyle(
+          color: _color,
+          fontSize: 12,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
+  }
+}
+
+class _PendingAcceptButton extends StatelessWidget {
+  const _PendingAcceptButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  static const Color _color = _CapsuleListCard._pendingColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Container(
+        height: 40,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        decoration: const BoxDecoration(
+          color: _color,
+          boxShadow: <BoxShadow>[
+            BoxShadow(color: Color(0xFF5A372B), offset: Offset(3, 3)),
+          ],
+        ),
+        alignment: Alignment.center,
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Icon(Icons.add_circle_outline, color: Colors.white, size: 18),
+            SizedBox(width: 6),
+            Text(
+              '추가하기',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
         ),
       ),
     );
