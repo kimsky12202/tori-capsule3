@@ -38,21 +38,6 @@ class TimecapsulePageState extends State<TimecapsulePage>
       body: Stack(
         children: [
           GameWidget(game: _game),
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: IgnorePointer(
-              child: SizedBox(
-                height: 96,
-                child: Image.asset(
-                  'assets/images/auth/asset.png',
-                  fit: BoxFit.cover,
-                  alignment: Alignment.topCenter,
-                ),
-              ),
-            ),
-          ),
           // 테스트용 버튼 (나중에 제거)
           Positioned(
             bottom: 30,

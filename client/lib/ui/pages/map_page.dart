@@ -28,6 +28,9 @@ class MapPage extends StatefulWidget {
 
 class MapPageState extends State<MapPage> with TickerProviderStateMixin {
   static const _defaultCenter = LatLng(37.5665, 126.9780);
+  static const double _initialZoom = 13;
+  // 마커 클러스터링 임계값(픽셀). 화면상 이 픽셀 이내에 있는 마커들을 하나로 묶음.
+  static const double _clusterPixelRadius = 60;
 
   final _spotApi = TouristSpotApi();
   final _mapController = MapController();
@@ -41,6 +44,7 @@ class MapPageState extends State<MapPage> with TickerProviderStateMixin {
   bool _checkingIn = false;
   MapStyle _mapStyle = MapStyle.streets;
   LatLng? _userLatLng;
+  double _currentZoom = _initialZoom;
   StreamSubscription<Position>? _positionSub;
   AnimationController? _cameraAnim;
 
@@ -461,7 +465,7 @@ class MapPageState extends State<MapPage> with TickerProviderStateMixin {
       mapController: _mapController,
       options: MapOptions(
         initialCenter: center,
-        initialZoom: 13,
+        initialZoom: _initialZoom,
         minZoom: 5,
         maxZoom: 20,
         cameraConstraint: CameraConstraint.contain(
@@ -470,6 +474,7 @@ class MapPageState extends State<MapPage> with TickerProviderStateMixin {
             const LatLng(85.0, 180.0),
           ),
         ),
+        onMapEvent: _onMapEvent,
       ),
       children: [
         TileLayer(
@@ -485,24 +490,73 @@ class MapPageState extends State<MapPage> with TickerProviderStateMixin {
     );
   }
 
+  /// 줌 변화에 따라 마커 클러스터링이 갱신되도록 setState 트리거.
+  void _onMapEvent(MapEvent event) {
+    final double zoom = event.camera.zoom;
+    if ((zoom - _currentZoom).abs() >= 0.25) {
+      if (!mounted) return;
+      setState(() => _currentZoom = zoom);
+    }
+  }
+
+  /// 줌 레벨에서 1 픽셀이 차지하는 미터.
+  /// 웹 메르카토르: equator 156543.034 m/px ÷ 2^zoom, 위도 보정 cos(lat).
+  double _metersPerPixel(double zoom, double lat) {
+    return 156543.034 *
+        math.cos(lat * math.pi / 180) /
+        math.pow(2, zoom);
+  }
+
+  /// 현재 줌에서의 클러스터 거리 임계값(미터).
+  double _clusterThresholdMeters(double zoom) {
+    final LatLng anchor =
+        _userLatLng ?? _mapController.camera.center;
+    return _metersPerPixel(zoom, anchor.latitude) * _clusterPixelRadius;
+  }
+
+  /// 관광지/캡슐 마커들을 가까운 것끼리 묶어서 클러스터로 만든다.
+  List<_MarkerCluster> _buildClusters(List<_MapItem> items, double zoom) {
+    if (items.isEmpty) return const <_MarkerCluster>[];
+    final double threshold = _clusterThresholdMeters(zoom);
+    final clusters = <_MarkerCluster>[];
+
+    for (final item in items) {
+      _MarkerCluster? best;
+      double bestDist = double.infinity;
+      for (final c in clusters) {
+        final double d = _distanceMeters(item.point, c.center);
+        if (d <= threshold && d < bestDist) {
+          best = c;
+          bestDist = d;
+        }
+      }
+      if (best != null) {
+        best.items.add(item);
+        // 클러스터 중심을 멤버 평균으로 갱신
+        double lat = 0;
+        double lng = 0;
+        for (final m in best.items) {
+          lat += m.point.latitude;
+          lng += m.point.longitude;
+        }
+        final int n = best.items.length;
+        best.center = LatLng(lat / n, lng / n);
+      } else {
+        clusters.add(_MarkerCluster(<_MapItem>[item], item.point));
+      }
+    }
+
+    return clusters;
+  }
+
   List<Marker> _buildMarkers() {
     final markers = <Marker>[];
+    final items = <_MapItem>[];
 
     for (final spot in _visibleSpots) {
       final point = _safeLatLng(spot.latitude, spot.longitude);
       if (point == null) continue;
-      markers.add(
-        Marker(
-          point: point,
-          width: 180,
-          height: 220,
-          alignment: Alignment.center,
-          child: GestureDetector(
-            onTap: () => _openSpotSheet(spot),
-            child: _SpotMarker(spot: spot),
-          ),
-        ),
-      );
+      items.add(_MapItem.spot(spot, point));
     }
 
     if (_showCapsules) {
@@ -510,18 +564,24 @@ class MapPageState extends State<MapPage> with TickerProviderStateMixin {
         if (!capsule.isBuried) continue;
         final point = _safeLatLng(capsule.latitude, capsule.longitude);
         if (point == null) continue;
+        items.add(_MapItem.capsule(capsule, point));
+      }
+    }
+
+    final clusters = _buildClusters(items, _currentZoom);
+    for (final cluster in clusters) {
+      if (cluster.items.length == 1) {
+        markers.add(_buildSingleMarker(cluster.items.first));
+      } else {
         markers.add(
           Marker(
-            point: point,
-            width: 180,
-            height: 220,
+            point: cluster.center,
+            width: 72,
+            height: 72,
             alignment: Alignment.center,
             child: GestureDetector(
-              onTap: () => _openCapsuleSheet(capsule),
-              child: _CapsuleMarker(
-                locked: capsule.isLocked,
-                design: capsule.design,
-              ),
+              onTap: () => _openClusterSheet(cluster),
+              child: _ClusterMarker(count: cluster.items.length),
             ),
           ),
         );
@@ -540,6 +600,181 @@ class MapPageState extends State<MapPage> with TickerProviderStateMixin {
     }
 
     return markers;
+  }
+
+  Marker _buildSingleMarker(_MapItem item) {
+    if (item.spot != null) {
+      final spot = item.spot!;
+      return Marker(
+        point: item.point,
+        width: 180,
+        height: 220,
+        alignment: Alignment.center,
+        child: GestureDetector(
+          onTap: () => _openSpotSheet(spot),
+          child: _SpotMarker(spot: spot),
+        ),
+      );
+    }
+    final capsule = item.capsule!;
+    return Marker(
+      point: item.point,
+      width: 180,
+      height: 220,
+      alignment: Alignment.center,
+      child: GestureDetector(
+        onTap: () => _openCapsuleSheet(capsule),
+        child: _CapsuleMarker(
+          locked: capsule.isLocked,
+          design: capsule.design,
+        ),
+      ),
+    );
+  }
+
+  void _openClusterSheet(_MarkerCluster cluster) {
+    final LatLng center = cluster.center;
+    _flyTo(center, zoom: math.min(_currentZoom + 2, 19));
+
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext sheetCtx) {
+        return SafeArea(
+          top: false,
+          child: Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                Padding(
+                  padding: const EdgeInsets.only(top: 8, bottom: 4),
+                  child: Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFCDBBA8),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
+                  child: Text(
+                    '이 위치의 항목 (${cluster.items.length})',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
+                      color: MapPage._brown,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    itemCount: cluster.items.length,
+                    separatorBuilder: (_, __) => const Divider(
+                      height: 1,
+                      color: Color(0xFFEEE7DC),
+                    ),
+                    itemBuilder: (_, int i) =>
+                        _buildClusterRow(cluster.items[i], sheetCtx),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildClusterRow(_MapItem item, BuildContext sheetCtx) {
+    if (item.spot != null) {
+      final spot = item.spot!;
+      return ListTile(
+        leading: Icon(spot.markerIcon, color: MapPage._brown),
+        title: Text(
+          spot.name,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontWeight: FontWeight.w900,
+            color: MapPage._brown,
+          ),
+        ),
+        subtitle: Text(
+          '${spot.categoryLabel} · ${spot.visited ? '발견 완료' : '미발견'}',
+          style: const TextStyle(
+            color: MapPage._mutedText,
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        trailing: const Icon(
+          Icons.chevron_right,
+          color: Color(0xFFB7A59C),
+        ),
+        onTap: () {
+          Navigator.of(sheetCtx).pop();
+          _openSpotSheet(spot);
+        },
+      );
+    }
+    final capsule = item.capsule!;
+    final String designLabel = _capsuleDesignLabel(capsule.design);
+    return ListTile(
+      leading: Icon(
+        capsule.isLocked
+            ? Icons.lock_outline
+            : Icons.inventory_2_outlined,
+        color: MapPage._brown,
+      ),
+      title: Text(
+        '$designLabel 캡슐',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          fontWeight: FontWeight.w900,
+          color: MapPage._brown,
+        ),
+      ),
+      subtitle: Text(
+        capsule.isLocked ? '아직 잠긴 캡슐' : '지금 열 수 있어요',
+        style: const TextStyle(
+          color: MapPage._mutedText,
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+      trailing: const Icon(
+        Icons.chevron_right,
+        color: Color(0xFFB7A59C),
+      ),
+      onTap: () {
+        Navigator.of(sheetCtx).pop();
+        _openCapsuleSheet(capsule);
+      },
+    );
+  }
+
+  static String _capsuleDesignLabel(String design) {
+    switch (design) {
+      case 'seoul':
+        return '경복궁';
+      case 'gyeongju':
+        return '경주';
+      default:
+        return '기본';
+    }
   }
 
   @override
@@ -642,6 +877,68 @@ class _MapControlButton extends StatelessWidget {
                   )
                 : Icon(icon, color: _brown, size: iconSize),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 클러스터링 대상 한 건(관광지 혹은 캡슐).
+class _MapItem {
+  const _MapItem._({required this.point, this.spot, this.capsule});
+
+  factory _MapItem.spot(TouristSpot spot, LatLng point) =>
+      _MapItem._(point: point, spot: spot);
+
+  factory _MapItem.capsule(CapsuleMapMarker capsule, LatLng point) =>
+      _MapItem._(point: point, capsule: capsule);
+
+  final LatLng point;
+  final TouristSpot? spot;
+  final CapsuleMapMarker? capsule;
+}
+
+class _MarkerCluster {
+  _MarkerCluster(this.items, this.center);
+
+  final List<_MapItem> items;
+  LatLng center;
+}
+
+class _ClusterMarker extends StatelessWidget {
+  const _ClusterMarker({required this.count});
+
+  final int count;
+
+  static const Color _brown = MapPage._brown;
+
+  @override
+  Widget build(BuildContext context) {
+    final double size = count >= 100 ? 64 : (count >= 10 ? 58 : 52);
+    final double fontSize = count >= 100 ? 16 : (count >= 10 ? 18 : 20);
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        shape: BoxShape.circle,
+        border: Border.all(color: _brown, width: 3),
+        boxShadow: const <BoxShadow>[
+          BoxShadow(
+            color: Color(0x33000000),
+            blurRadius: 6,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        '$count',
+        style: TextStyle(
+          color: _brown,
+          fontSize: fontSize,
+          fontWeight: FontWeight.w900,
+          height: 1.0,
         ),
       ),
     );

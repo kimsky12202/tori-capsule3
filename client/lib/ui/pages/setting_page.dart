@@ -7,7 +7,17 @@ import '../services/settings_preferences.dart';
 import 'friends_page.dart';
 import 'login/login_page.dart';
 
-enum _SettingsDetail { profile, friends, notifications, privacy, appInfo, help }
+enum _SettingsDetail {
+  profile,
+  friends,
+  notifications,
+  privacy,
+  appInfo,
+  help,
+  terms,
+  privacyPolicy,
+  faq,
+}
 
 class SettingPage extends StatefulWidget {
   const SettingPage({super.key});
@@ -305,14 +315,26 @@ class _SettingPageState extends State<SettingPage> {
       case _SettingsDetail.appInfo:
         return _AppInfoSettingsDetail(
           onBack: _hideDetail,
-          onTermsTap: () => _showUnavailable('이용약관'),
-          onPrivacyPolicyTap: () => _showUnavailable('개인정보 처리방침'),
+          onTermsTap: () => _showDetail(_SettingsDetail.terms),
+          onPrivacyPolicyTap: () => _showDetail(_SettingsDetail.privacyPolicy),
         );
       case _SettingsDetail.help:
         return _HelpSettingsDetail(
           onBack: _hideDetail,
-          onFaqTap: () => _showUnavailable('자주 묻는 질문'),
+          onFaqTap: () => _showDetail(_SettingsDetail.faq),
           onContactTap: () => _showUnavailable('1:1 문의하기'),
+        );
+      case _SettingsDetail.terms:
+        return _TermsSettingsDetail(
+          onBack: () => _showDetail(_SettingsDetail.appInfo),
+        );
+      case _SettingsDetail.privacyPolicy:
+        return _PrivacyPolicySettingsDetail(
+          onBack: () => _showDetail(_SettingsDetail.appInfo),
+        );
+      case _SettingsDetail.faq:
+        return _FaqSettingsDetail(
+          onBack: () => _showDetail(_SettingsDetail.help),
         );
     }
   }
@@ -967,6 +989,431 @@ class _HelpSettingsDetail extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _TermsSettingsDetail extends StatelessWidget {
+  const _TermsSettingsDetail({required this.onBack});
+
+  final VoidCallback onBack;
+
+  static const List<_LegalArticle> _articles = <_LegalArticle>[
+    _LegalArticle(
+      title: '제1조 (목적)',
+      body:
+          '이 약관은 토리캡슐(이하 "회사")이 제공하는 모바일 애플리케이션 서비스(이하 "서비스")의 이용과 관련하여 '
+          '회사와 이용자의 권리, 의무 및 책임사항, 기타 필요한 사항을 규정함을 목적으로 합니다.',
+    ),
+    _LegalArticle(
+      title: '제2조 (정의)',
+      body:
+          '1. "서비스"란 위치 기반으로 추억(글, 사진, 음악 등)을 캡슐 형태로 저장하고, 지정된 시점에 다시 열어볼 수 있도록 '
+          '제공되는 일체의 서비스를 말합니다.\n'
+          '2. "이용자"란 본 약관에 동의하고 서비스를 이용하는 자를 말합니다.\n'
+          '3. "캡슐"이란 이용자가 작성·등록한 콘텐츠와 위치 정보를 묶어 보관한 단위 데이터를 말합니다.',
+    ),
+    _LegalArticle(
+      title: '제3조 (약관의 효력 및 변경)',
+      body:
+          '1. 본 약관은 이용자가 회원가입 시 동의함으로써 효력이 발생합니다.\n'
+          '2. 회사는 관련 법령에 위배되지 않는 범위에서 약관을 변경할 수 있으며, 변경 시에는 시행일 7일 이전부터 '
+          '서비스 내 공지를 통해 안내합니다.',
+    ),
+    _LegalArticle(
+      title: '제4조 (서비스의 제공)',
+      body:
+          '회사는 다음과 같은 서비스를 제공합니다.\n'
+          '· 위치 기반 타임캡슐 생성·저장·개봉 기능\n'
+          '· 친구와의 그룹 캡슐 공유 기능\n'
+          '· 관광지 발견 및 AR 인증 기능\n'
+          '· 기타 회사가 추가로 개발하거나 제휴를 통해 제공하는 서비스',
+    ),
+    _LegalArticle(
+      title: '제5조 (이용자의 의무)',
+      body:
+          '이용자는 다음 행위를 하여서는 안 됩니다.\n'
+          '· 타인의 개인정보 또는 명예를 침해하는 콘텐츠 등록\n'
+          '· 음란물, 폭력적 콘텐츠 등 공서양속에 반하는 자료 게시\n'
+          '· 서비스의 정상적인 운영을 방해하는 행위\n'
+          '· 타인의 계정을 도용하거나 위치 정보를 조작하는 행위',
+    ),
+    _LegalArticle(
+      title: '제6조 (게시물의 관리)',
+      body:
+          '회사는 이용자가 등록한 콘텐츠가 본 약관 또는 관련 법령에 위배된다고 판단되는 경우, 사전 통지 없이 '
+          '해당 콘텐츠를 비공개 처리하거나 삭제할 수 있습니다.',
+    ),
+    _LegalArticle(
+      title: '제7조 (서비스의 중단)',
+      body:
+          '회사는 시스템 점검, 천재지변, 통신장애 등 부득이한 사유가 발생한 경우 서비스 제공을 일시적으로 중단할 수 있으며, '
+          '이로 인한 손해에 대해서는 고의 또는 중대한 과실이 없는 한 책임을 지지 않습니다.',
+    ),
+    _LegalArticle(
+      title: '제8조 (책임의 제한)',
+      body:
+          '회사는 이용자 간 또는 이용자와 제3자 간에 서비스를 매개로 발생한 분쟁에 대해서는 개입할 의무가 없으며, '
+          '이로 인한 손해를 배상할 책임을 지지 않습니다.',
+    ),
+    _LegalArticle(
+      title: '부칙',
+      body: '본 약관은 2026년 1월 1일부터 시행됩니다.',
+    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return _SettingsDetailShell(
+      onBack: onBack,
+      contentTopGap: 28,
+      child: _SettingsDetailPanel(
+        padding: const EdgeInsets.fromLTRB(26, 30, 26, 28),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            const _DetailTitle('이용약관'),
+            const SizedBox(height: 18),
+            for (int i = 0; i < _articles.length; i++) ...<Widget>[
+              _LegalSection(article: _articles[i]),
+              if (i < _articles.length - 1) const SizedBox(height: 22),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PrivacyPolicySettingsDetail extends StatelessWidget {
+  const _PrivacyPolicySettingsDetail({required this.onBack});
+
+  final VoidCallback onBack;
+
+  static const List<_LegalArticle> _sections = <_LegalArticle>[
+    _LegalArticle(
+      title: '1. 수집·이용 목적',
+      body:
+          '토리캡슐은 회원가입 및 본인 확인, 위치 기반 캡슐 서비스 제공, 친구 기능 및 알림 전송, '
+          '서비스 이용 분석을 통한 품질 개선 등의 목적으로 개인정보를 수집·이용합니다.',
+    ),
+    _LegalArticle(
+      title: '2. 수집하는 항목',
+      body:
+          '· 필수 항목: 이메일, 닉네임, 비밀번호(암호화 저장)\n'
+          '· 캡슐 등록 시: 사용자가 입력한 글·사진·동영상·음악, 캡슐을 묻은 위치(위·경도)\n'
+          '· 디바이스 정보: OS 버전, 푸시 알림 토큰(FCM)\n'
+          '· 선택 항목: 프로필 이미지, 상태 메시지',
+    ),
+    _LegalArticle(
+      title: '3. 보유 및 이용 기간',
+      body:
+          '회원 탈퇴 시 지체 없이 개인정보를 파기합니다. 다만 관계 법령에서 보존 의무를 정한 경우에는 '
+          '해당 기간 동안 안전하게 분리 보관 후 파기합니다.',
+    ),
+    _LegalArticle(
+      title: '4. 제3자 제공',
+      body:
+          '회사는 이용자의 동의 없이 개인정보를 제3자에게 제공하지 않습니다. 다만, 법령에 따라 수사기관 등이 '
+          '요청하는 경우에는 적법한 절차에 따라 제공할 수 있습니다.',
+    ),
+    _LegalArticle(
+      title: '5. 처리 위탁',
+      body:
+          '안정적인 서비스 제공을 위해 다음 업무를 외부에 위탁하고 있습니다.\n'
+          '· Mapbox: 지도 타일 렌더링\n'
+          '· Firebase Cloud Messaging: 푸시 알림 전송\n'
+          '· 클라우드 호스팅 사업자: 데이터 저장 및 백업',
+    ),
+    _LegalArticle(
+      title: '6. 이용자의 권리',
+      body:
+          '이용자는 언제든지 본인의 개인정보를 조회·수정·삭제할 수 있으며, 회원 탈퇴를 통해 처리 정지를 '
+          '요청할 수 있습니다. 위치 정보 수집은 디바이스의 위치 권한을 통해 직접 제어할 수 있습니다.',
+    ),
+    _LegalArticle(
+      title: '7. 안전성 확보 조치',
+      body:
+          '비밀번호는 일방향 암호화하여 저장하며, 서버와의 모든 통신은 HTTPS로 암호화됩니다. '
+          '개인정보 접근 권한은 최소한의 인원으로 제한하고, 정기적인 보안 점검을 수행합니다.',
+    ),
+    _LegalArticle(
+      title: '8. 개인정보 보호 책임자',
+      body:
+          '· 책임자: 토리캡슐 운영팀\n'
+          '· 문의: privacy@tori-capsule.me\n'
+          '본 방침은 2026년 1월 1일부터 적용됩니다.',
+    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return _SettingsDetailShell(
+      onBack: onBack,
+      contentTopGap: 28,
+      child: _SettingsDetailPanel(
+        padding: const EdgeInsets.fromLTRB(26, 30, 26, 28),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            const _DetailTitle('개인정보 처리방침'),
+            const SizedBox(height: 18),
+            for (int i = 0; i < _sections.length; i++) ...<Widget>[
+              _LegalSection(article: _sections[i]),
+              if (i < _sections.length - 1) const SizedBox(height: 22),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FaqSettingsDetail extends StatefulWidget {
+  const _FaqSettingsDetail({required this.onBack});
+
+  final VoidCallback onBack;
+
+  @override
+  State<_FaqSettingsDetail> createState() => _FaqSettingsDetailState();
+}
+
+class _FaqSettingsDetailState extends State<_FaqSettingsDetail> {
+  static const List<_FaqEntry> _entries = <_FaqEntry>[
+    _FaqEntry(
+      question: '타임캡슐은 어떻게 만드나요?',
+      answer:
+          '하단 가운데의 + 버튼을 누르면 캡슐 만들기가 시작됩니다. 혼자/그룹 캡슐을 고른 뒤 글, 사진, 음악을 담아 '
+          '현재 위치에 묻을 수 있어요. 묻은 캡슐은 지도 탭에 마커로 표시됩니다.',
+    ),
+    _FaqEntry(
+      question: '캡슐은 언제 다시 열 수 있나요?',
+      answer:
+          '캡슐을 만들 때 "잠금 시점"을 설정할 수 있습니다. 잠금을 켜지 않으면 언제든 다시 열어볼 수 있고, '
+          '날짜·시간을 지정하면 해당 시점이 지나야 내용이 보입니다. 친구와 함께 묻은 그룹 캡슐은 모든 멤버가 '
+          '동의해야 미리 열 수 있어요.',
+    ),
+    _FaqEntry(
+      question: '친구와 함께 캡슐을 묻으려면 어떻게 해야 하나요?',
+      answer:
+          '캡슐 만들기에서 "그룹 캡슐"을 선택한 뒤, 미리 친구 목록에 추가해 둔 사람을 선택하면 됩니다. '
+          '친구 추가는 [설정 → 친구 관리]에서 닉네임으로 검색해 신청할 수 있어요.',
+    ),
+    _FaqEntry(
+      question: '관광지는 어떻게 발견하나요?',
+      answer:
+          '지도에서 ?로 표시된 위치 근처에 가면 "관광지" 버튼이 활성화됩니다. 버튼을 누르거나 AR 화면에서 '
+          '직접 인증하면 해당 장소가 발견 완료로 바뀌고, 캡슐 디자인이 잠금 해제될 수 있어요.',
+    ),
+    _FaqEntry(
+      question: '지도 마커가 겹쳐 보일 때는 어떻게 하나요?',
+      answer:
+          '가까이 있는 마커들은 자동으로 묶여 숫자가 표시됩니다. 숫자를 누르면 해당 위치의 캡슐·관광지 목록이 '
+          '뜨고, 원하는 항목을 선택하면 상세 화면으로 이동합니다. 지도를 확대해도 자연스럽게 풀려요.',
+    ),
+    _FaqEntry(
+      question: '왜 위치 권한이 필요한가요?',
+      answer:
+          '캡슐은 "현재 위치에 묻는" 서비스이기 때문에 위치 권한이 필수입니다. 권한이 없으면 캡슐을 묻거나 '
+          '근처 관광지를 발견할 수 없어요. 위치 정보는 캡슐 좌표와 발견 인증에만 사용되며, 별도로 추적하지 않습니다.',
+    ),
+    _FaqEntry(
+      question: '알림이 오지 않아요.',
+      answer:
+          '[설정 → 알림 설정]에서 푸시 알림과 캡슐 개봉 알림이 모두 켜져 있는지 확인해주세요. 디바이스의 '
+          'OS 설정에서 토리캡슐 알림이 차단되어 있는 경우에도 알림이 도착하지 않을 수 있습니다.',
+    ),
+    _FaqEntry(
+      question: '계정을 삭제하고 싶어요.',
+      answer:
+          '[설정 → 개인정보 설정 → 회원 탈퇴]를 통해 요청할 수 있습니다. 탈퇴가 완료되면 등록한 캡슐과 '
+          '프로필 정보가 모두 삭제되며 복구할 수 없으므로 신중히 진행해주세요.',
+    ),
+  ];
+
+  final Set<int> _expanded = <int>{0};
+
+  void _toggle(int index) {
+    setState(() {
+      if (_expanded.contains(index)) {
+        _expanded.remove(index);
+      } else {
+        _expanded.add(index);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _SettingsDetailShell(
+      onBack: widget.onBack,
+      contentTopGap: 28,
+      child: _SettingsDetailPanel(
+        padding: const EdgeInsets.fromLTRB(22, 28, 22, 22),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            const _DetailTitle('자주 묻는 질문 (FAQ)'),
+            const SizedBox(height: 18),
+            for (int i = 0; i < _entries.length; i++)
+              _FaqRow(
+                entry: _entries[i],
+                isOpen: _expanded.contains(i),
+                onTap: () => _toggle(i),
+                showDivider: i < _entries.length - 1,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LegalArticle {
+  const _LegalArticle({required this.title, required this.body});
+
+  final String title;
+  final String body;
+}
+
+class _LegalSection extends StatelessWidget {
+  const _LegalSection({required this.article});
+
+  final _LegalArticle article;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text(
+          article.title,
+          style: const TextStyle(
+            color: _SettingPageState._darkText,
+            fontSize: 14,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          article.body,
+          style: const TextStyle(
+            color: Color(0xFF334155),
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            height: 1.55,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _FaqEntry {
+  const _FaqEntry({required this.question, required this.answer});
+
+  final String question;
+  final String answer;
+}
+
+class _FaqRow extends StatelessWidget {
+  const _FaqRow({
+    required this.entry,
+    required this.isOpen,
+    required this.onTap,
+    required this.showDivider,
+  });
+
+  final _FaqEntry entry;
+  final bool isOpen;
+  final VoidCallback onTap;
+  final bool showDivider;
+
+  static const Color _brown = _SettingPageState._brown;
+  static const Color _darkText = _SettingPageState._darkText;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                const Text(
+                  'Q',
+                  style: TextStyle(
+                    color: _brown,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    entry.question,
+                    style: const TextStyle(
+                      color: _darkText,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w900,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Icon(
+                  isOpen ? Icons.expand_less : Icons.expand_more,
+                  color: _brown,
+                  size: 24,
+                ),
+              ],
+            ),
+          ),
+        ),
+        AnimatedCrossFade(
+          firstChild: const SizedBox(width: double.infinity, height: 0),
+          secondChild: Padding(
+            padding: const EdgeInsets.fromLTRB(0, 0, 4, 14),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                const Text(
+                  'A',
+                  style: TextStyle(
+                    color: Color(0xFF8E5555),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    entry.answer,
+                    style: const TextStyle(
+                      color: Color(0xFF334155),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      height: 1.55,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          crossFadeState:
+              isOpen ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+          duration: const Duration(milliseconds: 180),
+        ),
+        if (showDivider)
+          Container(
+            height: 1,
+            color: const Color(0xFFD7C8BF),
+          ),
+      ],
     );
   }
 }
