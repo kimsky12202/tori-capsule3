@@ -675,9 +675,11 @@ class MapPageState extends State<MapPage> with TickerProviderStateMixin {
               ),
             ),
           ),
+          // 핀 헤드(box 중앙 = LatLng) 오른쪽 옆에 갯수 배지.
+          // top: 8 처럼 박스 맨 위에 두면 핀이 그려지는 중앙과 너무 멀어진다.
           Positioned(
-            left: 108,
-            top: 8,
+            left: 122,
+            top: 80,
             child: _ClusterCountBadge(count: cluster.items.length),
           ),
           Positioned(
