@@ -73,9 +73,11 @@ class CapsuleDetail {
     required this.openOption,
     required this.openAt,
     required this.canOpenNow,
+    this.name = '',
   });
 
   final String id;
+  final String name;
   final String status;
   final String memo;
   final String emotion;
