@@ -656,8 +656,8 @@ class MapPageState extends State<MapPage> with TickerProviderStateMixin {
     );
   }
 
-  /// 캡슐 클러스터 마커: 대표 캡슐 핀 + 우상단 갯수 배지.
-  /// (단일 캡슐 마커와 동일한 사이즈/모양을 쓰되 옆에 숫자만 작게 붙임)
+  /// 캡슐 클러스터 마커: 단일 캡슐 마커와 동일한 모양.
+  /// 겹친 캡슐을 누르면 _openClusterSheet 가 캡슐 목록 바텀시트를 띄움.
   Marker _buildClusterMarker(_MarkerCluster cluster) {
     final CapsuleMapMarker representative = cluster.items.first.capsule!;
     return Marker(
@@ -674,12 +674,6 @@ class MapPageState extends State<MapPage> with TickerProviderStateMixin {
                 design: representative.design,
               ),
             ),
-          ),
-          // 캡슐 핀의 오른쪽 아래에 갯수 배지가 붙도록.
-          Positioned(
-            left: 118,
-            top: 130,
-            child: _ClusterCountBadge(count: cluster.items.length),
           ),
           Positioned(
             left: 55,
@@ -967,49 +961,6 @@ class _MarkerCluster {
 
   final List<_MapItem> items;
   LatLng center;
-}
-
-/// 클러스터링된 캡슐 핀 옆에 붙는 작은 갯수 배지.
-class _ClusterCountBadge extends StatelessWidget {
-  const _ClusterCountBadge({required this.count});
-
-  final int count;
-
-  // 강조용 빨간 갈색. 핀의 갈색 톤과 충돌하지 않으면서 시선을 끔.
-  static const Color _bgColor = Color(0xFFA14040);
-
-  @override
-  Widget build(BuildContext context) {
-    final String label = count >= 100 ? '99+' : '$count';
-    final double size = count >= 100 ? 36 : (count >= 10 ? 32 : 28);
-    final double fontSize = count >= 100 ? 11 : (count >= 10 ? 13 : 14);
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: _bgColor,
-        shape: BoxShape.circle,
-        border: Border.all(color: Colors.white, width: 2),
-        boxShadow: const <BoxShadow>[
-          BoxShadow(
-            color: Color(0x66000000),
-            blurRadius: 4,
-            offset: Offset(0, 2),
-          ),
-        ],
-      ),
-      alignment: Alignment.center,
-      child: Text(
-        label,
-        style: TextStyle(
-          color: Colors.white,
-          fontSize: fontSize,
-          fontWeight: FontWeight.w900,
-          height: 1.0,
-        ),
-      ),
-    );
-  }
 }
 
 class _SpotMarker extends StatelessWidget {
